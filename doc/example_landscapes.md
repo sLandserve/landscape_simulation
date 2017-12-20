@@ -26,148 +26,35 @@ The idea with these landscapes is to use the derived equations (from one of the 
 
 ## Simple landscape generation
 
-One of the simplest methods to generate landscapes with fixed proportions of supply, demand, supply/demand, neutral, at different levels of fragmentation is to use mid-point displacement method for generating continuous surfaces of differing spatial autocorrelation and then to classify into discrete categories.
+One of the simplest methods to generate landscapes with fixed proportions of supply, demand, supply/demand, neutral (each are 25%), at different levels of fragmentation is to use mid-point displacement method for generating continuous surfaces of differing spatial autocorrelation and then to classify into discrete categories.
 
-
-```r
-# roughness = 0 --> most clumped (full spatial autocorrelation)
-mpd_0 <- nlm_mpd(nrow, ncol, roughness=0)
-```
-
-```
-## nlm_mpd returns RasterLayer with that fits in the dimension 2^n+1
-```
-
-```r
-mpd_class_0 <- util_classify(mpd_0, weighting=c(0.25, 0.25, 0.25, 0.25), level_names=c("supply", "supply/demand", "demand", "neutral"))
-util_plot(mpd_class_0, discrete = TRUE)
-```
-
-```
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-```
-
+### Most clumped (full spatial autocorrelation, roughness = 0)
 ![](example_landscapes_files/figure-html/unnamed-chunk-1-1.png)<!-- -->
 
-```r
-# roughness = 0.5 --> intermediate level of fragmentation (intermediate spatial autocorrelation)
-mpd_0.5 <- nlm_mpd(nrow, ncol, roughness=0.5)
-```
+### Intermediate level of fragmentation (intermediate spatial autocorrelation, roughness = 0.5)
+![](example_landscapes_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
 
-```
-## nlm_mpd returns RasterLayer with that fits in the dimension 2^n+1
-```
+### Higher level of fragmentation (lower spatial autocorrelation, roughness = 0.75)
+![](example_landscapes_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
 
-```r
-mpd_class_0.5 <- util_classify(mpd_0.5, weighting=c(0.25, 0.25, 0.25, 0.25), level_names=c("supply", "supply/demand", "demand", "neutral"))
-util_plot(mpd_class_0.5, discrete = TRUE)
-```
+Highest level of fragmentation (no spatial autocorrelation, roughness = 1)
+![](example_landscapes_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
 
-```
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-```
-
-![](example_landscapes_files/figure-html/unnamed-chunk-1-2.png)<!-- -->
-
-```r
-# roughness = 0.75 --> higher level of fragmentation (lower spatial autocorrelation)
-mpd_0.75 <- nlm_mpd(nrow, ncol, roughness=0.75)
-```
-
-```
-## nlm_mpd returns RasterLayer with that fits in the dimension 2^n+1
-```
-
-```r
-mpd_class_0.75 <- util_classify(mpd_0.75, weighting=c(0.25, 0.25, 0.25, 0.25), level_names=c("supply", "supply/demand", "demand", "neutral"))
-util_plot(mpd_class_0.75, discrete = TRUE)
-```
-
-```
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-```
-
-![](example_landscapes_files/figure-html/unnamed-chunk-1-3.png)<!-- -->
-
-```r
-# roughness = 1 --> highest level of fragmentation (complete spatial autocorrelation)
-mpd_1 <- nlm_mpd(nrow, ncol, roughness=1)
-```
-
-```
-## nlm_mpd returns RasterLayer with that fits in the dimension 2^n+1
-```
-
-```r
-mpd_class_1 <- util_classify(mpd_1, weighting=c(0.25, 0.25, 0.25, 0.25), level_names=c("supply", "supply/demand", "demand", "neutral"))
-util_plot(mpd_class_1, discrete = TRUE)
-```
-
-```
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-```
-
-![](example_landscapes_files/figure-html/unnamed-chunk-1-4.png)<!-- -->
-
-The issue with this is that the fragmentation, and location, of patches is related for each of the land cover types. This is fine for services where we want the same level of fragmentation in supply and demand. Also, it makes most sense when we only map supply and demand: once we have more categories (e.g. the supply/demand and neutral), the order in which we specify the category then becomes important, making it more complicated. 
+The issue with this method is that the fragmentation, and location, of patches is related for each of the land cover types. This is fine for services where we want the same level of fragmentation in supply and demand. Also, it makes most sense when we only map supply and demand: once we have more categories (e.g. the supply/demand and neutral), the order in which we specify the category then becomes important, making it more complicated. 
 
 We can get around this by creating two landscapes - one supply, one demand, then merging to get a landscape which has different levels of fragmentation depending on supply or demand. See below an example where there is 15% cover of both supply and demand (note this will not necessarily total 30% of the landscape because of the supply/demand overlap). 
 
 
-```r
-# supply and demand continuous surfaces
-supply <- nlm_mpd(nrow, ncol, roughness = 1)
-```
 
-```
-## nlm_mpd returns RasterLayer with that fits in the dimension 2^n+1
-```
 
-```r
-demand <- nlm_mpd(nrow, ncol, roughness = 0)
-```
+### 15% supply, highest level of fragmentation (roughness = 1)
+![](example_landscapes_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
 
-```
-## nlm_mpd returns RasterLayer with that fits in the dimension 2^n+1
-```
+### 15% demand, no fragmentation (roughness = 0)
+![](example_landscapes_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
 
-```r
-# discretise them based on 15% cover for each
-supply_bin <- util_classify(supply, weighting = c(0.85, 0.15), level_names = c("neutral", "supply"))
-util_plot(supply_bin, discrete = TRUE)
-```
-
-```
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-```
-
-![](example_landscapes_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
-
-```r
-demand_bin <- util_classify(demand, weighting = c(0.85, 0.15), level_names = c("neutral", "demand"))
-util_plot(demand_bin, discrete = TRUE)
-```
-
-```
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-```
-
-![](example_landscapes_files/figure-html/unnamed-chunk-2-2.png)<!-- -->
-
-```r
-# the below gives us a value of 0 for neutral and 2 for demand (supply remains at 1) which allows us to add then surfaces together. 
-demand_bin <- demand_bin*2
-
-# add the surfaces to get the supply, demand, supply/demand, neutral surfaces
-sd <- supply_bin + demand_bin
-util_plot(sd, discrete = TRUE)
-```
-
-```
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-```
-
-![](example_landscapes_files/figure-html/unnamed-chunk-2-3.png)<!-- -->
+### The combined landscape gives us values for neutral (0), supply (1), demand(2) and supply/demand (3)
+![](example_landscapes_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
 
 ## From landscape to network
 
@@ -179,21 +66,6 @@ For the final landscape created, we can then convert it into a network. First by
   a. *Euclidean distances*: every pair is linked with a weight based on Euclidean distance
   b. *Binary*: a pair of nodes is considered linked if they are < 15 cells apart (no weight)
   
-
-```r
-# polygonise the raster and plot
-nodes <- rasterToPolygons(sd, dissolve=TRUE)
-```
-
-```
-## Loading required namespace: rgeos
-```
-
-```r
-nodes <- disaggregate(nodes)
-nodes <- st_as_sf(nodes)
-plot(nodes)
-```
 
 ```
 ## Warning in classInt::classIntervals(values, nbreaks, breaks): n greater
@@ -207,54 +79,13 @@ plot(nodes)
 ## separate class
 ```
 
-![](example_landscapes_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
-
-```r
-# get cover type (supply, demand, supply/demand, neutral)
-nodes$type <- factor(nodes$layer, labels=c("neutral", "supply", "demand", "supply/demand"))
-
-# get area information
-nodes$area <- st_area(nodes)
-
-# create the network matrices
-# 1. Euclidean distances
-nodes_euclid <- st_distance(nodes)
-
-# 2. Binary distances (threshold of 15 units)
-nodes_binary <- ifelse(nodes_euclid > 15, 0, 1)
-
-# TODO: need to write code to visualise both as a network (igraph/ggraph packages for this)
-```
+![](example_landscapes_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
 
 ## More complex landscape generation
 
 Merging a spatially autocorrelated landscape with an edge gradient. For this we will create a supply landscape that has an edge gradient by merging our landscape from above with one with an edge gradient.
 
-
-```r
-# Edge gradient
-edge <- nlm_edgegradient(nrow(supply), ncol(supply))
-util_plot(edge)
-```
-
-```
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-```
-
-![](example_landscapes_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
-
-```r
-# Random landscape with a gradient
-supply_edge <- util_merge(supply, edge)
-supply_edge_bin <- util_classify(supply_edge, weighting = c(0.85, 0.15), level_names = c("neutral", "supply"))
-util_plot(supply_edge_bin, discrete = TRUE)
-```
-
-```
-## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
-```
-
-![](example_landscapes_files/figure-html/unnamed-chunk-4-2.png)<!-- -->
+![](example_landscapes_files/figure-html/unnamed-chunk-10-1.png)<!-- -->![](example_landscapes_files/figure-html/unnamed-chunk-10-2.png)<!-- -->
 
 ## Other landscapes
 The [NLMR package](https://marcosci.github.io/NLMR/) has [16 methods](https://marcosci.github.io/NLMR/articles/bestiary.html) for creating neutral landscape models, these can then be merged and/or classified. 
