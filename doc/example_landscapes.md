@@ -1,8 +1,9 @@
-# Example Landscapes
+# Landscape Simulation: Initial thoughts
 Laura Graham  
 18 December 2017  
 
 
+In this document I've put together some things we need to think about to make sure we set up the landscape simulations sensibly and then shown some examples of landscapes, and how we go from this to a network. 
 
 ## Things to think about
 
