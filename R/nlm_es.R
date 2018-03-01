@@ -67,7 +67,7 @@
 
 # for now, while still being sourced in, need to load the appropriate libraries
 
-nlm_neigh <-
+nlm_es <-
   function(ncol,
            nrow,
            resolution = 1,
