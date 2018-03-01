@@ -65,8 +65,6 @@
 #'
 #' @export
 
-# for now, while still being sourced in, need to load the appropriate libraries
-
 nlm_es <-
   function(ncol,
            nrow,
@@ -141,7 +139,7 @@ nlm_es <-
         # This is where I have made the main change. We have 3 options:
         
         # 1. u = 0 - use f_empty
-        if (u == 0) {
+        if (identical(u, 0)) {
           if (r < f_empty) {
             matrix[row, col] <- i
             j <- j + 1
@@ -149,7 +147,7 @@ nlm_es <-
         }
         
         # 2. u = [0, i] or i - use f_vec[i]
-        if (identical(u, c(0, i)) || u == i) {
+        if (identical(u, c(0, i)) || identical(u, i)) {
           if(r < f_vec[i]) {
             matrix[row, col] <- i
             j <- j + 1
@@ -185,6 +183,13 @@ nlm_es <-
       0,
       nrow(rndes_raster) * resolution
     )
+    
+    # label the attributes
+    rndes_raster <- raster::as.factor(rndes_raster)
+    
+    c_r_levels <- raster::levels(rndes_raster)[[1]]
+    c_r_levels[["Categories"]] <- c("Neutral", "Supply", "Demand")
+    levels(rndes_raster) <- c_r_levels
 
     return(rndes_raster)
   }
