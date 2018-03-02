@@ -110,7 +110,7 @@ Next step is to create the distance matrix, and table which includes `ID`, `patc
 ```{r network, eval = FALSE}
 load("results/simulated_landscapes.Rda")
 
-network <- lapply(sim_ls, function(x) network_create(x$ls))
+network <- lapply(sim_ls, function(x) network_create(x))
 
 save(network, file = "results/landscape_networks.Rda")
 ```

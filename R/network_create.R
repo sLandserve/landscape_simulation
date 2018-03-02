@@ -1,10 +1,10 @@
-network_create <- function(ls) {
+network_create <- function(x) {
   # create attribute table
-  attribs <- rasterToPolygons(ls, dissolve=TRUE) %>% disaggregate %>% st_as_sf %>% 
+  attribs <- rasterToPolygons(x$ls, dissolve=TRUE) %>% disaggregate %>% st_as_sf %>% 
     mutate(ID = 1:n(),
            patch_type = factor(layer, labels = c("neutral", "supply", "demand")),
            patch_area = st_area(.)) %>% 
-    select(-layer)
+    select(-layer) %>% cbind(x$params %>% as.data.frame %>% t)
   
   # create the Euclidean distance matrix
   distances <- st_distance(attribs)
