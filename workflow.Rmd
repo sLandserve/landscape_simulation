@@ -8,19 +8,35 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+
+# the code to generate the simulated landscapes is in the below file
+#source("R/nlm_es.R")
+
+# required libraries
+library(plyr)
+library(raster)
+library(tidyverse)
+library(cowplot)
+library(NLMR) 
+library(sf)
 ```
 
 In this document we can do the main analysis for the simulated landscapes examples, from simulating the landscapes through to analysing via equations and motifs. Any underlying functions can be saved in the `R` folder, and be called using `source(function_file.R)`. The outline of the workflow is as follows:
 
 1. Simulate landscapes with the following parameters: 
-      * `p_supply`: proportion of the landscape which is ES supply
+
+      * `p_supply`: proportion of the landscape which is ES supply 
       * `p_demand`: proportion of the landscape which is ES demand
-      * `f_supply`: the fragmentation level of the ES supply (in the range [0, 1] with 1 being the least fragmented)
-      * `f_demand`: the fragmentation level of the ES demand (in the range [0, 1] with 1 being the least fragmented)
+      * `f_supply`: the fragmentation level of the ES supply (in the range [0, 1] with 1 being the most fragmented)
+      * `f_demand`: the fragmentation level of the ES demand (in the range [0, 1] with 1 being the most fragmented)
+
+<!--Version for the ABM method, if i get it working:
       * `inter`: the interpersion between ES supply and demand (in the range [0, 1] with 1 being completely interspersed)
+-->
 We will have landscapes for a range of each parameter, and for each parameter combination we will generate 100 replicates. 
-  
+
+
 2. Generate a distance matrix and an attribute dataframe from each simulated landscape. The distance matrix will contain Euclidean distances between every supply and demand patch within the landscape (supply-supply, demand-demand, supply-demand). The attribute table will contain the following columns:
       * `ID`: the patch identity to link back to the distance matrix
       * `patch_type`: whether the patch is supply or demand
@@ -33,11 +49,87 @@ We will have landscapes for a range of each parameter, and for each parameter co
 5. Compare the equations and motif analysis results
 
 # Simulate landscapes
+<!--Version for the ABM method, if i get it working:
+We will use the function `nlm_es` which I have written to allow us to control the amount, fragmentation and interspersion of supply and demand. This function is an agent based landscape simulation and is heavily based on the `nlm_neigh` function in the `NLMR` package. 
+-->
+
+For now, we are generating the landscapes by simulating a supply layer and a demand layer using the mid-point displacement method, binarising the surfaces, then putting them together. If a cell is both supply and demand, this cell is then converted to demand. If we continue to use this method (e.g. if the ABM code I am working on which will allow us to incorporate interspersion doesn't work out) we will make this more nuanced. 
+The initial simulated landscapes will use all combinations of the following range of parameters: 
+
+- `p_supply` and `p_demand`: fixed at 0.15
+- `f_supply`, `f_demand` and `inter`: 0 to 1 in increments of 0.25
+
+This gives us a total of 125 simulated landscapes. At the moment we have 1 of each landscape, but for analysis we should generate 100 replicates of each. 
+
+```{r sim_ls, eval = FALSE}
+# THIS SECTION TO CHANGE ANY PARAMETERS OF THE SIMULATED LANDSCAPE ----
+# generate the parameter table
+nrows <- ncols <- 65 # NB for MPD method must have 2^n+1 rows/cols
+p_supply <- p_demand <- 0.15
+f_supply <- f_demand <- seq(0, 1, by = 0.25)
+reps <- 1 # change this to do a full analysis
+
+# combine parameters into a table for creating landscapes
+param_table <- expand.grid(ncol = ncols, nrow = nrows, 
+                           f_supply = f_supply, p_supply = p_supply, 
+                           f_demand = f_demand, p_demand = p_demand, 
+                           reps = reps)
+
+sim_ls <- apply(param_table, 1, function(x) ls_create(x))
+
+save(sim_ls, file = "results/simulated_landscapes.Rda")
+```
+
+The below figure provides an illustration of one iteration of the landscapes: 
+
+```{r plot_ls, message = FALSE, warning = FALSE, fig.width = 12, fig.height = 12}
+# reloading the data because step one takes a bit of time
+load("results/simulated_landscapes.Rda")
+
+# combine all runs into one dataframe and only take the first replicate of each
+# combination for plotting
+ls_df <- ldply(sim_ls, function(x) x$ls_df) %>% 
+  filter(reps == 1) %>% 
+  mutate(f_supply = paste0("f_supply = ", f_supply), f_demand = paste0("f_demand = ", f_demand))
+
+# plot the landscapes (this is just one example of each kind)
+ggplot(ls_df, aes(x = x, y = y, fill = layer_Categories)) + 
+  geom_raster() + 
+  coord_equal() + 
+  scale_fill_viridis_d(name = "Category") + 
+  theme(axis.text = element_blank(), axis.title = element_blank(), 
+        axis.line = element_blank(), axis.ticks = element_blank()) + 
+  facet_grid(f_supply ~ f_demand)
+```
 
 # Distance and attribute tables
 
+Next step is to create the distance matrix, and table which includes `ID`, `patch_type`, `patch_area` for each simulated landscape. We will also include the parameters used to generate the landscape on the attribute table, for ease of analysis. 
+
+```{r network, eval = FALSE}
+load("results/simulated_landscapes.Rda")
+
+network <- lapply(sim_ls, function(x) network_create(x$ls))
+
+save(network, file = "results/landscape_networks.Rda")
+```
+
 # ES benefit from equations
+
+```{r equations}
+# this has all the stuff you need for the landscape network stuff
+load("results/landscape_networks.Rda")
+```
 
 # Network motif analysis
 
+```{r network_motif}
+
+```
+
 # Equation and motif comparison
+
+```{r comparison}
+
+```
+

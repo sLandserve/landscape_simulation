@@ -74,7 +74,6 @@ nlm_es <-
            f_demand,
            p_demand,
            inter,
-           f_empty = 0.5, # I may actually just want to fix this in the code, rather than allowing it to be fixed. 
            neighborhood = "Von-Neumann") { # think about which is the more sensible neighbourhood to take
     
     # Check function arguments ----
@@ -91,6 +90,7 @@ nlm_es <-
     # Determine cells per category
     no_cells <- c(p_supply * nrow * ncol, p_demand * nrow * ncol)
     f_vec <- c(f_supply, f_demand)
+    f_empty <- 1 - f_vec
     
     # Create an empty matrix of correct dimensions + additional 2 rows and
     # columns ----
@@ -140,7 +140,7 @@ nlm_es <-
         
         # 1. u = 0 - use f_empty
         if (identical(u, 0)) {
-          if (r < f_empty) {
+          if (r < f_empty[i]) {
             matrix[row, col] <- i
             j <- j + 1
           }
@@ -187,9 +187,9 @@ nlm_es <-
     # label the attributes
     rndes_raster <- raster::as.factor(rndes_raster)
     
-    c_r_levels <- raster::levels(rndes_raster)[[1]]
-    c_r_levels[["Categories"]] <- c("Neutral", "Supply", "Demand")
-    levels(rndes_raster) <- c_r_levels
+    #c_r_levels <- raster::levels(rndes_raster)[[1]]
+    #c_r_levels[["Categories"]] <- c("Neutral", "Supply", "Demand")
+    #levels(rndes_raster) <- c_r_levels
 
     return(rndes_raster)
   }
