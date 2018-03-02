@@ -10,16 +10,17 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 
-# the code to generate the simulated landscapes is in the below file
-#source("R/nlm_es.R")
-
 # required libraries
+library(R.utils)
 library(plyr)
 library(raster)
 library(tidyverse)
 library(cowplot)
 library(NLMR) 
 library(sf)
+
+# source functions
+sourceDirectory("R")
 ```
 
 In this document we can do the main analysis for the simulated landscapes examples, from simulating the landscapes through to analysing via equations and motifs. Any underlying functions can be saved in the `R` folder, and be called using `source(function_file.R)`. The outline of the workflow is as follows:
