@@ -57,9 +57,9 @@ For now, we are generating the landscapes by simulating a supply layer and a dem
 The initial simulated landscapes will use all combinations of the following range of parameters: 
 
 - `p_supply` and `p_demand`: fixed at 0.15
-- `f_supply`, `f_demand` and `inter`: 0 to 1 in increments of 0.25
+- `f_supply` and `f_demand`: 0 to 1 in increments of 0.25
 
-This gives us a total of 125 simulated landscapes. At the moment we have 1 of each landscape, but for analysis we should generate 100 replicates of each. 
+This gives us a total of 25 simulated landscapes. At the moment we have 1 of each landscape, but for analysis we should generate replicates (100?) of each. 
 
 ```{r sim_ls, eval = FALSE}
 # THIS SECTION TO CHANGE ANY PARAMETERS OF THE SIMULATED LANDSCAPE ----
