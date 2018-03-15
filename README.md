@@ -1,2 +1,10 @@
-# landscape_simulation
-Repository for the landscape simulation and network creation part of the sLandserve project. 
+Simulated landscapes
+===
+
+Repository for the landscape simulation and network creation part of the sLandserve project. The workflow for this project is being developed in `workflow.Rmd`. 
+
+Note that the development version of `ggplot2` is required:
+
+`install.packages("devtools")`
+
+`devtools::install_github("tidyverse/ggplot2")`
