@@ -16,7 +16,6 @@ In this document we can do the main analysis for the simulated landscapes exampl
 -->
 We will have landscapes for a range of each parameter, and for each parameter combination we will generate 100 replicates. 
 
-
 2. Generate a distance matrix and an attribute dataframe from each simulated landscape. The distance matrix will contain Euclidean distances between every supply and demand patch within the landscape (supply-supply, demand-demand, supply-demand). The attribute table will contain the following columns:
       * `ID`: the patch identity to link back to the distance matrix
       * `patch_type`: whether the patch is supply or demand

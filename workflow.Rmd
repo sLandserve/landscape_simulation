@@ -8,7 +8,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 
 # required libraries
 library(R.utils)
@@ -37,7 +37,6 @@ In this document we can do the main analysis for the simulated landscapes exampl
 -->
 We will have landscapes for a range of each parameter, and for each parameter combination we will generate 100 replicates. 
 
-
 2. Generate a distance matrix and an attribute dataframe from each simulated landscape. The distance matrix will contain Euclidean distances between every supply and demand patch within the landscape (supply-supply, demand-demand, supply-demand). The attribute table will contain the following columns:
       * `ID`: the patch identity to link back to the distance matrix
       * `patch_type`: whether the patch is supply or demand
@@ -62,7 +61,7 @@ The initial simulated landscapes will use all combinations of the following rang
 
 This gives us a total of 25 simulated landscapes. At the moment we have 1 of each landscape, but for analysis we should generate replicates (100?) of each. 
 
-```{r sim_ls, eval = FALSE}
+```{r sim_ls}
 # THIS SECTION TO CHANGE ANY PARAMETERS OF THE SIMULATED LANDSCAPE ----
 # generate the parameter table
 nrows <- ncols <- 65 # NB for MPD method must have 2^n+1 rows/cols

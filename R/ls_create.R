@@ -7,12 +7,16 @@ ls_create <- function(x) {
   
   ls <- supply + demand
   
-  # at the moment, any 'supply/demand' cells are being converted to demand cells - will make this more    
-  # realistic if we use this method (and not the ABM version)
-  ls[ls == 3] <- 2
   ls <- as.factor(ls)
   c_r_levels <- levels(ls)[[1]]
-  c_r_levels[["Categories"]] <- c("neutral", "supply", "demand")
+  
+  # this allows for situations where there is no overlap of supply/demand
+  if (nrow(c_r_levels) == 4) {
+    c_r_levels[["Categories"]] <- c("neutral", "supply", "demand", "supply/demand")
+  } else {
+    c_r_levels[["Categories"]] <- c("neutral", "supply", "demand")
+  }
+  
   levels(ls) <- c_r_levels
   
   # get a dataframe out for ease of plotting
