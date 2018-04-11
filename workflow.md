@@ -48,7 +48,9 @@ The below figure provides an illustration of one iteration of the landscapes:
 
 # Distance and attribute tables
 
-Next step is to create the distance matrix, and table which includes `ID`, `patch_type`, `patch_area` for each simulated landscape. We will also include the parameters used to generate the landscape on the attribute table, for ease of analysis. 
+Next step is to create the distance matrix, and table which includes `ID`, `patch_code` (0 = neutral, 1 = supply, 2 = demand, 3 = supply/demand), `patch_area` for each simulated landscape. We will also include the parameters used to generate the landscape on the attribute table, for ease of analysis. 
+
+For the fanmod file outputs, there are 4 columns (as per the expected fanmod input for coloured vertices): int1 = id of node one, int2 = id of node two, int3 = type of node one, int4 = type of node two. At the moment, we assume that two nodes are linked if the distance between patches is less than the median distance between patches in that network. We also assume bidirectionality. Both of these need refining based on the service typology. 
 
 
 
