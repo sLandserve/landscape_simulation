@@ -16,7 +16,7 @@ library(plyr)
 library(raster)
 library(tidyverse)
 library(cowplot)
-library(NLMR) 
+library(nlmr) 
 library(sf)
 
 # source functions
