@@ -1,7 +1,7 @@
 Simulated landscapes
 ===
 
-Repository for the landscape simulation and network creation part of the sLandserve project. The workflow for this project is being developed in `workflow.Rmd`. 
+Repository for the landscape simulation and network creation part of the sLandserv project. The workflow for this project is being developed in `workflow.Rmd`. 
 
 Note that the development version of `ggplot2` is required:
 
