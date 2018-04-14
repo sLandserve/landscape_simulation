@@ -18,21 +18,28 @@ In this document we can do the main analysis for the simulated landscapes exampl
       * `f_supply`: the fragmentation level of the ES supply (in the range [0, 1] with 1 being the most fragmented)
       * `f_demand`: the fragmentation level of the ES demand (in the range [0, 1] with 1 being the most fragmented)
 
-<!--Version for the ABM method, if i get it working:
+<!--Version for the ABM method, if I get it working:
       * `inter`: the interpersion between ES supply and demand (in the range [0, 1] with 1 being completely interspersed)
 -->
 We will have landscapes for a range of each parameter, and for each parameter combination we will generate 100 replicates.
 
-2. Generate a distance matrix and an attribute dataframe from each simulated landscape. The distance matrix will contain Euclidean distances between every supply and demand patch within the landscape (supply-supply, demand-demand, supply-demand). The attribute table will contain the following columns:
+2. Generate a distance matrix and an attribute data frame from each simulated landscape. The distance matrix will contain Euclidean distances between every supply and demand patch within the landscape (supply-supply, demand-demand, supply-demand). The attribute table will contain the following columns:
+
       * `ID`: the patch identity to link back to the distance matrix
       * `patch_type`: whether the patch is supply or demand
       * `patch_area`: the size of the patch
 
-3. Calculate ES benefit for the landscape based on equations
+Here we also generate a discrete networks for the network analysis based on the following parameters (we assume no demand-demand links):
 
-4. Generate the network for the landscape and perform motif analysis
+      * `ee_link`: TRUE/FALSE indicating presence or absence of ecological-ecological links
+      * `ee_threshold`: distance threshold for ecological-ecological links
+      * `se_threshold`: distance threshold for social-ecological links
 
-5. Compare the equations and motif analysis results
+3. Calculate ES benefit for the landscape based on the network
+
+4. Perform motif analysis to identify frequency of motifs
+
+5. Compare landscape structure parameters, ES benefits and motif frequencies
 
 # Simulate landscapes
 <!--Version for the ABM method, if i get it working:
@@ -53,15 +60,23 @@ The below figure provides an illustration of one iteration of the landscapes:
 
 ![](workflow_files/figure-html/plot_ls-1.png)<!-- -->
 
-# Distance and attribute tables
+# Network, distance and attribute tables
 
-Next step is to create the distance matrix, and table which includes `ID`, `patch_code` (0 = neutral, 1 = supply, 2 = demand, 3 = supply/demand), `patch_area` for each simulated landscape. We will also include the parameters used to generate the landscape on the attribute table, for ease of analysis. 
+Next step is to create the distance matrix, and table which includes `ID`, `patch_code` (0 = neutral, 1 = supply, 2 = demand, 3 = supply/demand), `patch_area` for each simulated landscape. We will also include the parameters used to generate the landscape on the attribute table, for ease of analysis.
 
-For the fanmod file outputs, there are 4 columns (as per the expected fanmod input for coloured vertices): int1 = id of node one, int2 = id of node two, int3 = type of node one, int4 = type of node two. At the moment, we assume that two nodes are linked if the distance between patches is less than the median distance between patches in that network. We also assume bidirectionality. Both of these need refining based on the service typology. 
+Here we also create a discrete social-ecological network based on the distance thresholds between supply-supply nodes (ecological-ecological links) and supply-demand links (social-ecological links). For this we need to define whether ecological-ecological links exist, and the distance thresholds for each type of link, as follows:  
+
+- `ee_link`: TRUE/FALSE indicating presence or absence of ecological-ecological links
+- `ee_threshold`: distance threshold for ecological-ecological links
+- `se_threshold`: distance threshold for social-ecological links
+
+This is where we also generate network format for fanmod. For the fanmod file outputs, there are 4 columns (as per the expected fanmod input for coloured vertices): int1 = id of node one, int2 = id of node two, int3 = type of node one, int4 = type of node two.
 
 
 
-# ES benefit from equations
+# ES benefit calculation
+
+Next step is to generate the benefits based on the distance type node type metric. Note here that at present we discretise the network based on a distance threshold for the social-ecological and ecological-ecological links and then calculate the benefit based on this network     
 
 
 

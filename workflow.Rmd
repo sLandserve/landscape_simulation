@@ -16,7 +16,7 @@ library(plyr)
 library(raster)
 library(tidyverse)
 library(cowplot)
-library(nlmr) 
+library(NLMR)
 library(sf)
 
 # source functions
@@ -37,13 +37,17 @@ In this document we can do the main analysis for the simulated landscapes exampl
 -->
 We will have landscapes for a range of each parameter, and for each parameter combination we will generate 100 replicates.
 
-2. Generate a distance matrix and an attribute dataframe from each simulated landscape. The distance matrix will contain Euclidean distances between every supply and demand patch within the landscape (supply-supply, demand-demand, supply-demand). The attribute table will contain the following columns:
+2. Generate a distance matrix and an attribute data frame from each simulated landscape. The distance matrix will contain Euclidean distances between every supply and demand patch within the landscape (supply-supply, demand-demand, supply-demand). The attribute table will contain the following columns:
+
       * `ID`: the patch identity to link back to the distance matrix
       * `patch_type`: whether the patch is supply or demand
       * `patch_area`: the size of the patch
 
-This also generates a discrete networks for the network analysis
+Here we also generate a discrete networks for the network analysis based on the following parameters (we assume no demand-demand links):
 
+      * `ee_link`: TRUE/FALSE indicating presence or absence of ecological-ecological links
+      * `ee_threshold`: distance threshold for ecological-ecological links
+      * `se_threshold`: distance threshold for social-ecological links
 
 3. Calculate ES benefit for the landscape based on the network
 
@@ -107,27 +111,26 @@ ggplot(ls_df, aes(x = x, y = y, fill = layer_Categories)) +
 
 # Network, distance and attribute tables
 
-Next step is to create the distance matrix, and table which includes `ID`, `patch_code` (0 = neutral, 1 = supply, 2 = demand, 3 = supply/demand), `patch_area` for each simulated landscape. We will also include the parameters used to generate the landscape on the attribute table, for ease of analysis. 
-Next step is to create the distance matrix, and a table which includes `ID`, `patch_type`, `patch_area` for each simulated landscape.
+Next step is to create the distance matrix, and table which includes `ID`, `patch_code` (0 = neutral, 1 = supply, 2 = demand, 3 = supply/demand), `patch_area` for each simulated landscape. We will also include the parameters used to generate the landscape on the attribute table, for ease of analysis.
 
-For the fanmod file outputs, there are 4 columns (as per the expected fanmod input for coloured vertices): int1 = id of node one, int2 = id of node two, int3 = type of node one, int4 = type of node two. At the moment, we assume that two nodes are linked if the distance between patches is less than the median distance between patches in that network. We also assume bidirectionality. Both of these need refining based on the service typology. 
 Here we also create a discrete social-ecological network based on the distance thresholds between supply-supply nodes (ecological-ecological links) and supply-demand links (social-ecological links). For this we need to define whether ecological-ecological links exist, and the distance thresholds for each type of link, as follows:  
 
 - `ee_link`: TRUE/FALSE indicating presence or absence of ecological-ecological links
 - `ee_threshold`: distance threshold for ecological-ecological links
 - `se_threshold`: distance threshold for social-ecological links
 
+This is where we also generate network format for fanmod. For the fanmod file outputs, there are 4 columns (as per the expected fanmod input for coloured vertices): int1 = id of node one, int2 = id of node two, int3 = type of node one, int4 = type of node two.
 
 ```{r network, eval = FALSE}
 load("results/simulated_landscapes.Rda")
 
 # THIS SECTION TO CHANGE ANY PARAMETERS FOR GENERATING THE DISCRETE NETWORK ----
-ee_link <- TRUE
-ee_threshold <- 10
-es_threshold <- 10
+ee_link <- FALSE
+ee_thresh <- 10
+es_thresh <- 10
 
 sourceDirectory("R")
-network <- lapply(sim_ls[2], function(x,ee_link, ee_threshold, es_threshold) network_create(x, ee_link, ee_threshold, es_threshold), ee_link = ee_link, ee_threshold = ee_threshold, es_threshold = es_threshold)
+network <- lapply(sim_ls, function(x,ee_link, ee_thresh, es_thresh) network_create(x, ee_link, ee_thresh, es_thresh), ee_link = ee_link, ee_thresh = ee_thresh, es_thresh = es_thresh)
 
 save(network, file = "results/landscape_networks.Rda")
 ```
@@ -136,7 +139,7 @@ save(network, file = "results/landscape_networks.Rda")
 
 Next step is to generate the benefits based on the distance type node type metric. Note here that at present we discretise the network based on a distance threshold for the social-ecological and ecological-ecological links and then calculate the benefit based on this network     
 
-```{r benefit, eval = TRUE}
+```{r benefit, eval = FALSE}
 # this has all the stuff you need for the landscape network stuff
 load("results/landscape_networks.Rda")
 
