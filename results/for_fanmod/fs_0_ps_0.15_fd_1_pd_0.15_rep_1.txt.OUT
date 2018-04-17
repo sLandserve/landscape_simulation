@@ -1,0 +1,153 @@
+FANMOD 1.1 subgraph enumeration
+-------------------------------
+
+Network name: C:\Users\uqjrhode\Documents\work\github\landscape_simulation\results\for_fanmod\fs_0_ps_0.15_fd_1_pd_0.15_rep_1.txt
+Network type: Undirected
+Number of nodes: 234
+Number of edges: 1121
+Number of single edges: 0
+Number of mutual edges: 1121
+Number of vertex colors: 2
+
+Algorithm: enumeration
+Subgraph size: 4
+
+Generated 1000 random networks
+   with locally constant number of bidirectional edges,
+   exchanging only edges with the same vertex colors,
+   3 exchanges per edge and 3 tries per edge.
+
+407929 subgraphs were enumerated in the original network.
+646613365 subgraphs were enumerated in the random networks.
+647021294 subgraphs were enumerated in all networks.
+
+For the random networks: 7773468 tries were made, 1780145 were successful.
+Randomization took 2.484 seconds.
+Enumeration took 487.808 seconds.
+
+
+Result overview:
+
+     ID  Adj   Frequency     Mean-Freq  Standard-Dev    Z-Score  p-Value
+              [Original]      [Random]      [Random]
+
+   4382 0111      17.59%       11.097%    0.00055073     117.89        0
+        1100
+        1010
+        1001
+
+   4958 0111     16.941%       11.251%    0.00098395     57.827        0
+        1001
+        1010
+        1101
+
+   4382 0100     9.9628%       11.892%    0.00089827    -21.476        1
+        1011
+        0110
+        0101
+
+  13278 0111     7.7893%       1.8293%    0.00062361     95.573        0
+        1011
+        1110
+        1101
+
+   8598 0011     7.5089%       11.427%     0.0004683    -83.665        1
+        0001
+        1010
+        1101
+
+   4958 0011     6.5786%       6.0115%     0.0010382      5.462        0
+        0010
+        1101
+        1011
+
+   4958 0111      4.677%        2.106%    0.00099178     25.924        0
+        1010
+        1100
+        1001
+
+   8598 0011     4.0156%       9.5496%     0.0014705    -37.633        1
+        0010
+        1100
+        1001
+
+  31710 0111      3.884%      0.36473%    0.00021131     166.54        0
+        1011
+        1101
+        1111
+
+   8598 0110     2.9767%       7.1151%     0.0011152     -37.11        1
+        1001
+        1010
+        0101
+
+   4382 0010     2.8632%       7.1373%    0.00089017    -48.014        1
+        0010
+        1101
+        0011
+
+  13278 0111     2.6296%         1.26%    0.00047331     28.936        0
+        1011
+        1100
+        1101
+
+   4958 0001      2.561%      0.91821%    0.00061551      26.69        0
+        0011
+        0101
+        1110
+
+   8598 0001     2.5056%       3.6264%    0.00088147    -12.715        1
+        0011
+        0100
+        1101
+
+  13278 0011     1.8947%       1.9027%     0.0005094   -0.15748    0.593
+        0011
+        1101
+        1111
+
+   4958 0001     1.4066%       1.1771%    0.00037162     6.1765    0.005
+        0011
+        0101
+        1111
+
+   8598 0010     1.2487%       2.0189%    0.00019341    -39.821        1
+        0001
+        1001
+        0110
+
+  13278 0011    0.95727%      0.69391%    0.00013481     19.536        0
+        0011
+        1101
+        1110
+
+  31710 0111    0.81313%     0.038631%   5.4678e-005     141.65        0
+        1011
+        1101
+        1110
+
+  27030 0011    0.72022%        1.358%    0.00028264    -22.566        1
+        0011
+        1110
+        1101
+
+   4382 0001    0.38585%       2.6584%    0.00085393    -26.613        1
+        0001
+        0001
+        1110
+
+   4382 0001    0.05148%       1.1211%    0.00029718    -35.991        1
+        0001
+        0001
+        1111
+
+  27030 0011    0.03432%       2.1778%     0.0005782    -37.071        1
+        0011
+        1100
+        1101
+
+  27030 0110  0.0041674%       1.2681%     0.0005302    -23.838        1
+        1001
+        1001
+        0110
+

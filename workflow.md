@@ -21,7 +21,8 @@ In this document we can do the main analysis for the simulated landscapes exampl
 <!--Version for the ABM method, if I get it working:
       * `inter`: the interpersion between ES supply and demand (in the range [0, 1] with 1 being completely interspersed)
 -->
-We will have landscapes for a range of each parameter, and for each parameter combination we will generate 100 replicates.
+
+  We will have landscapes for a range of each parameter, and for each parameter combination we will generate 100 replicates.
 
 2. Generate a distance matrix and an attribute data frame from each simulated landscape. The distance matrix will contain Euclidean distances between every supply and demand patch within the landscape (supply-supply, demand-demand, supply-demand). The attribute table will contain the following columns:
 
@@ -29,7 +30,7 @@ We will have landscapes for a range of each parameter, and for each parameter co
       * `patch_type`: whether the patch is supply or demand
       * `patch_area`: the size of the patch
 
-Here we also generate a discrete networks for the network analysis based on the following parameters (we assume no demand-demand links):
+    Here we also generate a discrete networks for the network analysis based on the following parameters (we assume no demand-demand links):
 
       * `ee_link`: TRUE/FALSE indicating presence or absence of ecological-ecological links
       * `ee_threshold`: distance threshold for ecological-ecological links
@@ -58,7 +59,7 @@ This gives us a total of 25 simulated landscapes. At the moment we have 1 of eac
 
 The below figure provides an illustration of one iteration of the landscapes:
 
-![](workflow_files/figure-html/plot_ls-1.png)<!-- -->
+
 
 # Network, distance and attribute tables
 
@@ -73,6 +74,10 @@ Here we also create a discrete social-ecological network based on the distance t
 This is where we also generate network format for fanmod. For the fanmod file outputs, there are 4 columns (as per the expected fanmod input for coloured vertices): int1 = id of node one, int2 = id of node two, int3 = type of node one, int4 = type of node two.
 
 
+
+The below figure provides an illustration of one iteration of the networks:
+
+![](workflow_files/figure-html/plot_net-1.png)<!-- -->
 
 # ES benefit calculation
 

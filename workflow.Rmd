@@ -18,6 +18,10 @@ library(tidyverse)
 library(cowplot)
 library(NLMR)
 library(sf)
+library(GGally)
+library(network)
+library(sna)
+library(gridExtra)
 
 # source functions
 sourceDirectory("R")
@@ -35,6 +39,7 @@ In this document we can do the main analysis for the simulated landscapes exampl
 <!--Version for the ABM method, if I get it working:
       * `inter`: the interpersion between ES supply and demand (in the range [0, 1] with 1 being completely interspersed)
 -->
+
 We will have landscapes for a range of each parameter, and for each parameter combination we will generate 100 replicates.
 
 2. Generate a distance matrix and an attribute data frame from each simulated landscape. The distance matrix will contain Euclidean distances between every supply and demand patch within the landscape (supply-supply, demand-demand, supply-demand). The attribute table will contain the following columns:
@@ -43,7 +48,7 @@ We will have landscapes for a range of each parameter, and for each parameter co
       * `patch_type`: whether the patch is supply or demand
       * `patch_area`: the size of the patch
 
-Here we also generate a discrete networks for the network analysis based on the following parameters (we assume no demand-demand links):
+    Here we also generate a discrete networks for the network analysis based on the following parameters (we assume no demand-demand links):
 
       * `ee_link`: TRUE/FALSE indicating presence or absence of ecological-ecological links
       * `ee_threshold`: distance threshold for ecological-ecological links
@@ -89,7 +94,7 @@ save(sim_ls, file = "results/simulated_landscapes.Rda")
 
 The below figure provides an illustration of one iteration of the landscapes:
 
-```{r plot_ls, message = FALSE, warning = FALSE, fig.width = 12, fig.height = 12}
+```{r plot_ls, message = FALSE, warning = FALSE, fig.width = 12, fig.height = 12, eval = FALSE}
 # reloading the data because step one takes a bit of time
 load("results/simulated_landscapes.Rda")
 
@@ -125,14 +130,27 @@ This is where we also generate network format for fanmod. For the fanmod file ou
 load("results/simulated_landscapes.Rda")
 
 # THIS SECTION TO CHANGE ANY PARAMETERS FOR GENERATING THE DISCRETE NETWORK ----
-ee_link <- FALSE
+ee_link <- TRUE
 ee_thresh <- 10
 es_thresh <- 10
 
-sourceDirectory("R")
 network <- lapply(sim_ls, function(x,ee_link, ee_thresh, es_thresh) network_create(x, ee_link, ee_thresh, es_thresh), ee_link = ee_link, ee_thresh = ee_thresh, es_thresh = es_thresh)
 
 save(network, file = "results/landscape_networks.Rda")
+```
+
+The below figure provides an illustration of one iteration of the networks:
+
+```{r plot_net, message = FALSE, warning = FALSE, fig.width = 12, fig.height = 12}
+# reload the network data
+load("results/landscape_networks.Rda")
+
+# get the networks for the first replicates
+net_first_rep <- lapply(network, function(x) if(x$params["reps"] == 1) {return(x)})
+
+net_plots <- lapply(net_first_rep, function(x) {net <- network(x$network$net_links,directed=FALSE); net %v% "Node Type" <- ifelse(x$network$node_type == 1,"supply","demand"); return(ggnet2(net, size = log(x$network$node_areas), max_size = 2, edge.size = 0.01, color = "Node Type", palette = "Set2") + guides(color = FALSE, size = FALSE) + ggtitle(paste("f demand =", x$params["f_demand"], "& f supply =", x$params["f_supply"], sep=" ")))})
+
+grid.arrange(grobs = net_plots, layout_matrix = cbind(c(1,2,3,4,5),c(6,7,8,9,10),c(11,12,13,14,15),c(16,17,18,19,20),c(21,22,23,24,25)))
 ```
 
 # ES benefit calculation
@@ -142,8 +160,6 @@ Next step is to generate the benefits based on the distance type node type metri
 ```{r benefit, eval = FALSE}
 # this has all the stuff you need for the landscape network stuff
 load("results/landscape_networks.Rda")
-
-
 ```
 
 # Network motif analysis

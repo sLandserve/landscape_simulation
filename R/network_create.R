@@ -78,10 +78,10 @@ network_create <- function(x, ee_link, ee_thresh, es_thresh) {
     mutate(int2 = str_remove(int2, "V")) %>%
     filter(value == 1) %>%
     select(-value) %>%
-    # get patch type (colour) for the first node
-    inner_join(as_tibble(cbind(as.character(1:length(node_types)), as.character(node_types))) %>% select(int1 = V1, int3 = V2)) %>%
-    # get patch type (colour) for the second node
-    inner_join(as_tibble(cbind(as.character(1:length(node_types)), as.character(node_types))) %>% select(int2 = V1, int4 = V2)) %>%
+    # get patch type (colour) for the first node - note here that we convert node types to supply = 0 and demand = 1 to suit fanmod format
+    inner_join(as_tibble(cbind(as.character(1:length(node_types)), as.character(node_types - 1))) %>% select(int1 = V1, int3 = V2)) %>%
+    # get patch type (colour) for the second node - note here that we convert node types to supply = 0 and demand = 1 to suit fanmod format
+    inner_join(as_tibble(cbind(as.character(1:length(node_types)), as.character(node_types - 1))) %>% select(int2 = V1, int4 = V2)) %>%
     select(int1, int2, int3, int4)
 
   fname = paste0("results/for_fanmod/fs_",
