@@ -34,9 +34,9 @@ In this document we can do the main analysis for the simulated landscapes exampl
 
       * `p_supply`: proportion of the landscape which is ES supply
       * `p_demand`: proportion of the landscape which is ES demand
-      * `f_supply`: the fragmentation level of the ES supply (in the range [0, 1] with 1 being the most fragmented)
-      * `f_demand`: the fragmentation level of the ES demand (in the range [0, 1] with 1 being the most fragmented)
-      * `inter`: the interpersion between ES supply and demand (in the range [0, 1] with 1 being completely interspersed)
+      * `f_supply`: the fragmentation level (fractal dimension) of the ES supply (in the range [0, 2] with 2 being the least fragmented)
+      * `f_demand`: the fragmentation level (fractal dimension) of the ES demand (in the range [0, 1] with 1 being the least fragmented)
+      * `inter`: the interpersion between ES supply and demand (in the range [0, 1] with 1 being the least interspersed)
 
 We will have landscapes for a range of each parameter, and for each parameter combination we will generate 100 replicates.
 
@@ -46,52 +46,60 @@ We will have landscapes for a range of each parameter, and for each parameter co
       * `patch_type`: whether the patch is supply or demand
       * `patch_area`: the size of the patch
 
-    Here we also generate a discrete networks for the network analysis based on the following parameters (we assume no demand-demand links):
+    Here we also generate a discrete networks for the network analysis based on the following parameters (we assume no demand-demand links for now):
 
       * `ee_link`: TRUE/FALSE indicating presence or absence of ecological-ecological links
       * `ee_threshold`: distance threshold for ecological-ecological links
       * `se_threshold`: distance threshold for social-ecological links
 
-3. Calculate ES benefit for the landscape based on the network
+3. Calculate ES benefit for the landscape based on the network. This uses general equations for the generation of ES benefits based no the network (see 'benefit_functions.docx' for details). This produces a table with the ES benefits for each replicate. The parameters required are:
 
-4. Perform motif analysis to identify frequency of motifs
+Next step is to generate the benefits based on the distance type node type metric. Note here that at present we discretise the network based on a distance threshold for the social-ecological and ecological-ecological links and then calculate the benefit based on this network.
 
-5. Compare landscape structure parameters, ES benefits and motif frequencies
+      * `rival`: whether the services are rival (TRUE) or non-rival (FALSE)
+      * `alpha`: the rate of production of the potential ecosystem service per unit area at supply nodes (value > 0)
+      * `beta`: the influence of connected supply nodes (i.e., the ecological-ecological links) on the rate of production of the potential ecosystem service at supply nodes (value > 0)
+      * `eta`: the number of beneficiaries per unit area (value > 0)
+      * `lambda`: the utility per unit of ecosystem service used (value > 0).  
+
+4. Perform network analysis to characterise network structure
+
+5. Model ES benefits as a function of landscape structure parameters
+
+6. Model ES benefits as function of network structure parameters
 
 # Simulate landscapes
 
-We have created a function `ls_create` which simulates social-ecological landscapes for a given amount and fragmentation of supply and demand, and interspersion between the two. Our simulated landscapes are built up from three neutral landscape models (NLM): 
+We have created a function `ls_create` which simulates social-ecological landscapes for a given amount and fragmentation of supply and demand, and interspersion between the two. Our simulated landscapes are built up from three neutral landscape models (NLM):
 
 - supply landscape: a fractal Brownian motion NLM where we control the amount (`p_supply`) and configuration (`f_supply`)
 - demand landscape: a fractal Brownian motion NLM where we control the amount (`p_demand`) and configuration (`f_demand`)
 - a gradient landscape: a planar gradient NLM
 
-The final social-ecological landscape is then created using the following steps: 
+The final social-ecological landscape is then created using the following steps:
 
 - merge supply and demand landscapes (equal weighting to both)
-- merge the above landscape with the gradient landscape (here, the weighting controls the level of interspersion using the parameter `inter`: 
+- merge the above landscape with the gradient landscape (here, the weighting controls the level of interspersion using the parameter `inter`:
 
-  - 0 --> social and ecological patches as interspersed as the p/f parameters will allow
-  - 1 --> social and ecological patches as segregated as the p/f parameters will allow)
+- 0 --> social and ecological patches are as interspersed as the p/f parameters will allow
+- 1 --> social and ecological patches are as segregated as the p/f parameters will allow)
 
-For simplicity, we currently are not simulating supply/demand patches. 
+For simplicity, we currently are not simulating supply/demand patches.
 
 The initial simulated landscapes will use all combinations of the following range of parameters:
 
 - `p_supply` and `p_demand`: fixed at 0.15
-- `f_supply` and `f_demand`: 0.1, 0.5, 1 (from high to low fragmentation)
-- `inter`: 0, 0.5, 1
-
-This gives us a total of 27 simulated landscapes. At the moment we have 1 of each landscape, but for analysis we should generate replicates (100?) of each.
+- `f_supply` and `f_demand`: 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2.0 (from high to low fragmentation)
+- `inter`: 0, 0.25, 0.5, 0.75, 1
 
 ```{r sim_ls, eval = TRUE}
 # THIS SECTION TO CHANGE ANY PARAMETERS OF THE SIMULATED LANDSCAPE ----
 # generate the parameter table
 nrows <- ncols <- 50
 p_supply <- p_demand <- 0.15
-f_supply <- f_demand <- c(0.1, 0.5, 1)
-inter <- c(0, 0.5, 1)
-reps <- 1 # change this to do a full analysis
+f_supply <- f_demand <- c(0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5)
+inter <- c(0, 0.25, 0.5, 0.75, 1)
+reps <- c(1:2)
 
 # combine parameters into a table for creating landscapes
 param_table <- expand.grid(ncol = ncols, nrow = nrows, inter = inter,
@@ -114,7 +122,7 @@ load("results/simulated_landscapes.Rda")
 # combination for plotting
 ls_df <- ldply(sim_ls, function(x) x$ls_df) %>%
   filter(reps == 1) %>%
-  mutate(f_supply = paste0("f_supply = ", f_supply), 
+  mutate(f_supply = paste0("f_supply = ", f_supply),
          f_demand = paste0("f_demand = ", f_demand),
          frag = paste0(f_supply, ", ", f_demand),
          inter = paste0("inter = ", inter))
@@ -139,12 +147,12 @@ Here we also create a discrete social-ecological network based on the distance t
 - `ee_threshold`: distance threshold for ecological-ecological links
 - `se_threshold`: distance threshold for social-ecological links
 
-This is where we also generate network format for fanmod. For the fanmod file outputs, there are 4 columns (as per the expected fanmod input for coloured vertices): int1 = id of node one, int2 = id of node two, int3 = type of node one, int4 = type of node two.
+This is where we also generate the network format for fanmod. For the fanmod file outputs, there are 4 columns (as per the expected fanmod input for coloured vertices): int1 = id of node one, int2 = id of node two, int3 = type of node one, int4 = type of node two. Types are supply, demand, or supply/demand.
 
-```{r network, eval = FALSE}
+```{r network, eval = TRUE}
 load("results/simulated_landscapes.Rda")
 
-# THIS SECTION TO CHANGE ANY PARAMETERS FOR GENERATING THE DISCRETE NETWORK ----
+# THIS SECTION TO CHANGE ANY PARAMETERS FOR GENERATING THE DISCRETE NETWORKS ----
 ee_link <- TRUE
 ee_thresh <- 10
 es_thresh <- 10
@@ -154,9 +162,9 @@ network <- lapply(sim_ls, function(x,ee_link, ee_thresh, es_thresh) network_crea
 save(network, file = "results/landscape_networks.Rda")
 ```
 
-The below figure provides an illustration of one iteration of the networks:
+The below figure provides an illustration of one iteration of the networks (NOTE NEEDS TO FIXED):
 
-```{r plot_net, message = FALSE, warning = FALSE, fig.width = 12, fig.height = 12}
+```{r plot_net, message = FALSE, warning = FALSE, fig.width = 12, fig.height = 12, eval = FALSE}
 # reload the network data
 load("results/landscape_networks.Rda")
 
@@ -170,21 +178,45 @@ grid.arrange(grobs = net_plots, layout_matrix = cbind(c(1,2,3,4,5),c(6,7,8,9,10)
 
 # ES benefit calculation
 
-Next step is to generate the benefits based on the distance type node type metric. Note here that at present we discretise the network based on a distance threshold for the social-ecological and ecological-ecological links and then calculate the benefit based on this network     
+Next step is to generate the benefits based on the distance type node type metric. Note here that at present we discretise the network based on a distance threshold for the social-ecological and ecological-ecological links and then calculate the benefit based on this network.
 
-```{r benefit, eval = FALSE}
-# this has all the stuff you need for the landscape network stuff
+Here we assume stylised networks for generic services with flows between supply and demand (see benefit_functions.docx for detailed descriptions of the benefits functions). There are a number of parameters to specify:
+
+- `rival`: whether the services are rival (TRUE) or non-rival (FALSE)
+- `alpha`: the rate of production of the potential ecosystem service per unit area at supply nodes (value > 0)
+- `beta`: the influence of connected supply nodes (i.e., the ecological-ecological links) on the rate of production of the potential ecosystem service at supply nodes (value > 0)
+- `eta`: the number of beneficiaries per unit area (value > 0)
+- `lambda`: the utility per unit of ecosystem service used.  
+
+```{r benefit, eval = TRUE}
 load("results/landscape_networks.Rda")
+
+# THIS SECTION TO CHANGE ANY PARAMETERS FOR GENERATING THE BENEFITS ----
+rival <- FALSE
+alpha <- 1
+beta <- 0.1
+eta <- 1
+lambda <- 1
+
+benefit <- do.call(rbind, lapply(network, FUN = calculate_benefit, rival=rival, alpha=alpha, beta=beta, eta=eta, lambda=lambda))
+
+save(benefit, file = "results/benefit.Rda")
+
+```
+# Network analysis
+
+```{r network_analysis}
+
 ```
 
-# Network motif analysis
+# Modelling ES benefits based on landscape structure
 
-```{r network_motif}
+```{r model_landstruct}
 
 ```
 
-# Equation and motif comparison
+# Modelling ES benefits based on network structure
 
-```{r comparison}
+```{r model_netstruct}
 
 ```
