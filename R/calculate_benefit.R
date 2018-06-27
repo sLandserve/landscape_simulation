@@ -9,8 +9,8 @@ calculate_benefit <- function(net, rival, alpha, beta, eta, lambda) {
 
   # get the ES production at each of the supply nodes
   # get supply and demand ids - note here that supply/demand nodes are not considered, only supply or demand
-  supply_ids <- which(net$network$node_type == 1)
-  demand_ids <- which(net$network$node_type == 2)
+  supply_ids <- which(net$network$node_type == "supply")
+  demand_ids <- which(net$network$node_type == "demand")
   #calculate ES production for each supply node
   ss_links <- net$network$net_links[supply_ids, supply_ids]
   s_areas <- net$network$node_areas[supply_ids]

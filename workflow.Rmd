@@ -25,7 +25,7 @@ library(sna)
 library(gridExtra)
 
 # source functions
-sourceDirectory("R")
+#sourceDirectory("R")
 ```
 
 In this document we can do the main analysis for the simulated landscapes examples, from simulating the landscapes through to analysing via equations and motifs. Any underlying functions can be saved in the `R` folder, and be called using `source(function_file.R)`. The outline of the workflow is as follows:
@@ -34,8 +34,8 @@ In this document we can do the main analysis for the simulated landscapes exampl
 
       * `p_supply`: proportion of the landscape which is ES supply
       * `p_demand`: proportion of the landscape which is ES demand
-      * `f_supply`: the fragmentation level (fractal dimension) of the ES supply (in the range [0, 2] with 2 being the least fragmented)
-      * `f_demand`: the fragmentation level (fractal dimension) of the ES demand (in the range [0, 1] with 1 being the least fragmented)
+      * `f_supply`: the fragmentation level (fractal dimension) of the ES supply (in the range [0, 1] with 1 being the most fragmented)
+      * `f_demand`: the fragmentation level (fractal dimension) of the ES demand (in the range [0, 1] with 1 being the most fragmented)
       * `inter`: the interpersion between ES supply and demand (in the range [0, 1] with 1 being the least interspersed)
 
 We will have landscapes for a range of each parameter, and for each parameter combination we will generate 100 replicates.
@@ -47,9 +47,8 @@ We will have landscapes for a range of each parameter, and for each parameter co
       * `patch_area`: the size of the patch
 
     Here we also generate a discrete networks for the network analysis based on the following parameters (we assume no demand-demand links for now):
-
-      * `ee_link`: TRUE/FALSE indicating presence or absence of ecological-ecological links
-      * `ee_threshold`: distance threshold for ecological-ecological links
+    
+      * `ee_threshold`: distance threshold for ecological-ecological links (NULL if no ecological-ecological links)
       * `se_threshold`: distance threshold for social-ecological links
 
 3. Calculate ES benefit for the landscape based on the network. This uses general equations for the generation of ES benefits based no the network (see 'benefit_functions.docx' for details). This produces a table with the ES benefits for each replicate. The parameters required are:
@@ -81,33 +80,44 @@ The final social-ecological landscape is then created using the following steps:
 - merge supply and demand landscapes (equal weighting to both)
 - merge the above landscape with the gradient landscape (here, the weighting controls the level of interspersion using the parameter `inter`:
 
-- 0 --> social and ecological patches are as interspersed as the p/f parameters will allow
-- 1 --> social and ecological patches are as segregated as the p/f parameters will allow)
+- 1 --> social and ecological patches are as interspersed as the p/f parameters will allow
+- 0 --> social and ecological patches are as segregated as the p/f parameters will allow)
 
 For simplicity, we currently are not simulating supply/demand patches.
 
 The initial simulated landscapes will use all combinations of the following range of parameters:
 
 - `p_supply` and `p_demand`: fixed at 0.15
-- `f_supply` and `f_demand`: 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2.0 (from high to low fragmentation)
-- `inter`: 0, 0.25, 0.5, 0.75, 1
+- `f_supply` and `f_demand`: 0, 0.25, 0.5, 0.75, 1 (from low to high fragmentation)
+- `inter`: 0, 0.25, 0.5, 0.75, 1 (from low to high interspersion)
 
-```{r sim_ls, eval = TRUE}
+```{r ls_params, eval = TRUE}
 # THIS SECTION TO CHANGE ANY PARAMETERS OF THE SIMULATED LANDSCAPE ----
 # generate the parameter table
 nrows <- ncols <- 50
 p_supply <- p_demand <- 0.15
-f_supply <- f_demand <- c(0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5)
-inter <- c(0, 0.25, 0.5, 0.75, 1)
-reps <- c(1:2)
+f_supply <- f_demand <- inter <- seq(0, 1, by = 0.25)
+reps <- c(1)
 
 # combine parameters into a table for creating landscapes
-param_table <- expand.grid(ncol = ncols, nrow = nrows, inter = inter,
-                           f_supply = f_supply, p_supply = p_supply,
-                           f_demand = f_demand, p_demand = p_demand,
+param_table <- expand.grid(nrow = nrows, 
+                           ncol = ncols, 
+                           p_supply = p_supply,
+                           p_demand = p_demand,
+                           f_supply = f_supply,
+                           f_demand = f_demand, 
+                           inter = inter,
                            reps = reps)
 
-sim_ls <- apply(param_table, 1, function(x) ls_create(x))
+sim_ls <- apply(param_table, 1, function(x) {
+  ls_create(x[['nrow']], 
+            x[['ncol']], 
+            x[['p_supply']], 
+            x[['p_demand']], 
+            x[['f_supply']], 
+            x[['f_demand']], 
+            x[['inter']])
+})
 
 save(sim_ls, file = "results/simulated_landscapes.Rda")
 ```
@@ -118,9 +128,13 @@ The below figure provides an illustration of one iteration of the landscapes:
 # reloading the data because step one takes a bit of time
 load("results/simulated_landscapes.Rda")
 
+# THIS PLOT NEEDS SORTING OUT BECAUSE IT'S IMPOSSIBLE TO READ AT PRESENT
+
 # combine all runs into one dataframe and only take the first replicate of each
 # combination for plotting
-ls_df <- ldply(sim_ls, function(x) x$ls_df) %>%
+ls_df <- ldply(sim_ls, function(x) {
+  as.data.frame(x$ls, xy = TRUE) %>% cbind(x$params)
+  }) %>%
   filter(reps == 1) %>%
   mutate(f_supply = paste0("f_supply = ", f_supply),
          f_demand = paste0("f_demand = ", f_demand),
@@ -134,7 +148,7 @@ ggplot(ls_df, aes(x = x, y = y, fill = layer_Categories)) +
   scale_fill_viridis_d(name = "Category") +
   theme(axis.text = element_blank(), axis.title = element_blank(),
         axis.line = element_blank(), axis.ticks = element_blank()) +
-  facet_grid(frag ~ inter)
+  facet_grid(inter ~ frag)
 ```
 
 # Network, distance and attribute tables
@@ -153,11 +167,12 @@ This is where we also generate the network format for fanmod. For the fanmod fil
 load("results/simulated_landscapes.Rda")
 
 # THIS SECTION TO CHANGE ANY PARAMETERS FOR GENERATING THE DISCRETE NETWORKS ----
-ee_link <- TRUE
+# Note to Jonathan - I've changed the function so that you set the ee_thresh to NULL if you don't want those links (and set that as default). 
+
 ee_thresh <- 10
 es_thresh <- 10
 
-network <- lapply(sim_ls, function(x,ee_link, ee_thresh, es_thresh) network_create(x, ee_link, ee_thresh, es_thresh), ee_link = ee_link, ee_thresh = ee_thresh, es_thresh = es_thresh)
+network <- lapply(sim_ls, function(x,ee_thresh, es_thresh) network_create(x, ee_thresh, es_thresh),ee_thresh = ee_thresh, es_thresh = es_thresh)
 
 save(network, file = "results/landscape_networks.Rda")
 ```
@@ -168,10 +183,12 @@ The below figure provides an illustration of one iteration of the networks (NOTE
 # reload the network data
 load("results/landscape_networks.Rda")
 
+# JONATHAN: I've changed the node type so that it has text (then node code is 0 for supply and 1 for demand - this plot will need amending accordingly)
+
 # get the networks for the first replicates
 net_first_rep <- lapply(network, function(x) if(x$params["reps"] == 1) {return(x)})
 
-net_plots <- lapply(net_first_rep, function(x) {net <- network(x$network$net_links,directed=FALSE); net %v% "Node Type" <- ifelse(x$network$node_type == 1,"supply","demand"); return(ggnet2(net, size = log(x$network$node_areas), max_size = 2, edge.size = 0.01, color = "Node Type", palette = "Set2") + guides(color = FALSE, size = FALSE) + ggtitle(paste("f demand =", x$params["f_demand"], "& f supply =", x$params["f_supply"], sep=" ")))})
+net_plots <- lapply(net_first_rep, function(x) {net <- network(x$network$net_links,directed=FALSE); net %v% "Node Type" <- node_type; return(ggnet2(net, size = log(x$network$node_areas), max_size = 2, edge.size = 0.01, color = "Node Type", palette = "Set2") + guides(color = FALSE, size = FALSE) + ggtitle(paste("f demand =", x$params["f_demand"], "& f supply =", x$params["f_supply"], sep=" ")))})
 
 grid.arrange(grobs = net_plots, layout_matrix = cbind(c(1,2,3,4,5),c(6,7,8,9,10),c(11,12,13,14,15),c(16,17,18,19,20),c(21,22,23,24,25)))
 ```
