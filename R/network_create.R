@@ -90,7 +90,7 @@ network_create <- function(x, ee_link, ee_thresh, es_thresh) {
                 "_rep_", x$params['reps'], ".txt")
   write_delim(fanmod, fname, col_names = FALSE)
 
-  #Laura's code for fanmod input files - not deployed at present - but adapted to networks above
+  #Laura's old code for fanmod input files - not deployed, but adapted to generate networks above
 
   #bin_dist <- apply(distances, 1:2, function(x) ifelse(x < median(distances), 1, 0))
   #diag(bin_dist) <- 0
@@ -118,7 +118,7 @@ network_create <- function(x, ee_link, ee_thresh, es_thresh) {
   names(params_temp) <- c("ee_link", "ee_thresh", "es_thresh")
   params <- c(x$params, params_temp)
 
-  # return the three items as a list
+  # return the three items (plus the parameter values and attribute table) as a list
   return(list(params = params, attribs = attribs, distances = distances, network = network, fanmod = fanmod))
 
 }
