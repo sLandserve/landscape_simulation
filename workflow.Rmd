@@ -25,7 +25,7 @@ library(sna)
 library(gridExtra)
 
 # source functions
-#sourceDirectory("R")
+sourceDirectory("R")
 ```
 
 In this document we can do the main analysis for the simulated landscapes examples, from simulating the landscapes through to analysing via equations and motifs. Any underlying functions can be saved in the `R` folder, and be called using `source(function_file.R)`. The outline of the workflow is as follows:
@@ -47,7 +47,7 @@ We will have landscapes for a range of each parameter, and for each parameter co
       * `patch_area`: the size of the patch
 
     Here we also generate a discrete networks for the network analysis based on the following parameters (we assume no demand-demand links for now):
-    
+
       * `ee_threshold`: distance threshold for ecological-ecological links (NULL if no ecological-ecological links)
       * `se_threshold`: distance threshold for social-ecological links
 
@@ -97,26 +97,27 @@ The initial simulated landscapes will use all combinations of the following rang
 nrows <- ncols <- 50
 p_supply <- p_demand <- 0.15
 f_supply <- f_demand <- inter <- seq(0, 1, by = 0.25)
-reps <- c(1)
+reps <- c(1:100)
 
 # combine parameters into a table for creating landscapes
-param_table <- expand.grid(nrow = nrows, 
-                           ncol = ncols, 
+param_table <- expand.grid(nrow = nrows,
+                           ncol = ncols,
                            p_supply = p_supply,
                            p_demand = p_demand,
                            f_supply = f_supply,
-                           f_demand = f_demand, 
+                           f_demand = f_demand,
                            inter = inter,
                            reps = reps)
 
 sim_ls <- apply(param_table, 1, function(x) {
-  ls_create(x[['nrow']], 
-            x[['ncol']], 
-            x[['p_supply']], 
-            x[['p_demand']], 
-            x[['f_supply']], 
-            x[['f_demand']], 
-            x[['inter']])
+  ls_create(x[['nrow']],
+            x[['ncol']],
+            x[['p_supply']],
+            x[['p_demand']],
+            x[['f_supply']],
+            x[['f_demand']],
+            x[['inter']],
+            x[['reps']])
 })
 
 save(sim_ls, file = "results/simulated_landscapes.Rda")
@@ -124,7 +125,7 @@ save(sim_ls, file = "results/simulated_landscapes.Rda")
 
 The below figure provides an illustration of one iteration of the landscapes:
 
-```{r plot_ls, message = FALSE, warning = FALSE, fig.width = 12, fig.height = 12, eval = TRUE}
+```{r plot_ls, message = FALSE, warning = FALSE, fig.width = 12, fig.height = 12, eval = FALSE}
 # reloading the data because step one takes a bit of time
 load("results/simulated_landscapes.Rda")
 
@@ -151,7 +152,7 @@ ggplot(ls_df, aes(x = x, y = y, fill = layer_Categories)) +
   facet_grid(inter ~ frag)
 ```
 
-# Network, distance and attribute tables
+# Generate distance matrices and networks
 
 Next step is to create the distance matrix, and table which includes `ID`, `patch_code` (0 = neutral, 1 = supply, 2 = demand, 3 = supply/demand), `patch_area` for each simulated landscape. We will also include the parameters used to generate the landscape on the attribute table, for ease of analysis.
 
@@ -167,7 +168,7 @@ This is where we also generate the network format for fanmod. For the fanmod fil
 load("results/simulated_landscapes.Rda")
 
 # THIS SECTION TO CHANGE ANY PARAMETERS FOR GENERATING THE DISCRETE NETWORKS ----
-# Note to Jonathan - I've changed the function so that you set the ee_thresh to NULL if you don't want those links (and set that as default). 
+# Note to Jonathan - I've changed the function so that you set the ee_thresh to NULL if you don't want those links (and set that as default).
 
 ee_thresh <- 10
 es_thresh <- 10
@@ -223,6 +224,8 @@ save(benefit, file = "results/benefit.Rda")
 # Network analysis
 
 ```{r network_analysis}
+
+
 
 ```
 

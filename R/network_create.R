@@ -20,45 +20,45 @@
 #'@export
 network_create <- function(x, es_thresh, ee_thresh = NULL, ss_thresh = NULL) {
   # create attribute table
-  all_nodes <- rasterToPolygons(x$ls, dissolve=TRUE) %>% 
-    disaggregate %>% 
+  all_nodes <- rasterToPolygons(x$ls, dissolve=TRUE) %>%
+    disaggregate %>%
     st_as_sf %>%
     mutate(ID = as.character(1:n()),
            patch_type = case_when(layer == 0 ~ "supply",
                                   layer == 1 ~ "neutral",
                                   TRUE ~ "demand"),
            patch_area = st_area(.)) %>%
-    select(-layer) %>% 
-    filter(patch_type != "neutral") %>% 
+    select(-layer) %>%
+    filter(patch_type != "neutral") %>%
     mutate(patch_code = case_when(patch_type == "supply" ~ 0,
                                   patch_type == "demand" ~ 1,
                                   TRUE ~ NaN))
-  
-  # create the social-ecological network based on the ee_link, ee_thresh, and es_thresh
+
+  # create the social-ecological network based on ee_thresh, es_thresh, and ss_thresh (ss_thresh currently not implemented)
   # this generates a list of the node attributes (node colour) and the link presence/absence
   # between each node
   supply_nodes <- which(all_nodes$patch_type == "supply")
   demand_nodes <- which(all_nodes$patch_type == "demand")
-  
+
   net_links <- st_distance(all_nodes)
-  
+
   net_links[supply_nodes, demand_nodes] <- ifelse(net_links[supply_nodes, demand_nodes] <= es_thresh, 1, 0)
   net_links[demand_nodes, supply_nodes] <- ifelse(net_links[demand_nodes, supply_nodes] <= es_thresh, 1, 0)
-  
+
   if(!is.null(ee_thresh)) {
     net_links[supply_nodes, supply_nodes] <- ifelse(net_links[supply_nodes, supply_nodes] <= ee_thresh, 1, 0)
   } else {
     net_links[supply_nodes, supply_nodes] <- 0
   }
-  
+
   if(!is.null(ss_thresh)) {
     net_links[demand_nodes, demand_nodes] <- ifelse(net_links[demand_nodes, demand_nodes] <= ee_thresh, 1, 0)
   } else {
     net_links[demand_nodes, demand_nodes] <- 0
   }
-  
+
   network <- list(node_code = all_nodes$patch_code, node_type = all_nodes$patch_type, node_areas = all_nodes$patch_area, net_links = net_links)
-  
+
   # create fanmod representation of discrete network - assumes bidirectionality
   # NB this is output to file and not returned by the model
   bin_dist <- net_links
@@ -75,14 +75,22 @@ network_create <- function(x, es_thresh, ee_thresh = NULL, ss_thresh = NULL) {
     # get patch type (colour) for the second node
     inner_join(as_tibble(cbind(as.character(1:length(network$node_code)), as.character(network$node_code))) %>% select(int2 = V1, int4 = V2)) %>%
     select(int1, int2, int3, int4)
-  
-  dtime <- Sys.time()
-  dtime <- str_replace_all(dtime, "[[:punct:]]", "")
+
   fname = paste0("results/for_fanmod/fs_",
                  x$params['f_supply'], "_ps_", x$params['p_supply'],
                  "_fd_", x$params['f_demand'], "_pd_", x$params['p_demand'],
-                 "_", dtime, ".txt")
+                 "_rep_", x$params['rep'], ".txt")
+
+  #NOTE TO LAURA - NOT SURE WHY WE HAVE THE SYSTEM TIME ADDED TO THE FILE NAME BELOW - REPLACED WITH REP NUMBER ABOVE
+  #FOR NOW. I ASSUME IT WAS FOR DEBUGGING.
+  #dtime <- Sys.time()
+  #dtime <- str_replace_all(dtime, "[[:punct:]]", "")
+  #fname = paste0("results/for_fanmod/fs_",
+  #               x$params['f_supply'], "_ps_", x$params['p_supply'],
+  #               "_fd_", x$params['f_demand'], "_pd_", x$params['p_demand'],
+  #               "_", dtime, ".txt")
+
   write_delim(fanmod, fname, col_names = FALSE)
-  
+
   return(list(network = network, params = x$params))
 }
