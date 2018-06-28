@@ -58,8 +58,8 @@ Next step is to generate the benefits based on the distance type node type metri
       * `rival`: whether the services are rival (TRUE) or non-rival (FALSE)
       * `alpha`: the rate of production of the potential ecosystem service per unit area at supply nodes (value > 0)
       * `beta`: the influence of connected supply nodes (i.e., the ecological-ecological links) on the rate of production of the potential ecosystem service at supply nodes (value > 0)
-      * `eta`: the number of beneficiaries per unit area (value > 0)
-      * `lambda`: the utility per unit of ecosystem service used (value > 0).  
+      * `gamma`: marginal utility of the service at zero service used
+      * `eta`: rate of decline of the marginal utility with increasing use of the service (value > 0)
 
 4. Perform network analysis to characterise network structure
 
@@ -203,8 +203,8 @@ Here we assume stylised networks for generic services with flows between supply 
 - `rival`: whether the services are rival (TRUE) or non-rival (FALSE)
 - `alpha`: the rate of production of the potential ecosystem service per unit area at supply nodes (value > 0)
 - `beta`: the influence of connected supply nodes (i.e., the ecological-ecological links) on the rate of production of the potential ecosystem service at supply nodes (value > 0)
-- `eta`: the number of beneficiaries per unit area (value > 0)
-- `lambda`: the utility per unit of ecosystem service used.  
+- `gamma`: marginal utility of the service at zero service used
+- `eta`: rate of decline of the marginal utility with increasing use of the service (value > 0)
 
 ```{r benefit, eval = TRUE}
 load("results/landscape_networks.Rda")
@@ -213,10 +213,12 @@ load("results/landscape_networks.Rda")
 rival <- FALSE
 alpha <- 1
 beta <- 0.1
-eta <- 1
-lambda <- 1
+gamma <- 1
+eta <- 0.1
 
-benefit <- do.call(rbind, lapply(network, FUN = calculate_benefit, rival=rival, alpha=alpha, beta=beta, eta=eta, lambda=lambda))
+sourceDirectory("R")
+
+benefit <- do.call(rbind, lapply(network, FUN = calculate_benefit, rival=rival, alpha=alpha, beta=beta, gamma=gamma, eta=eta))
 
 save(benefit, file = "results/benefit.Rda")
 
