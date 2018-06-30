@@ -60,7 +60,7 @@ network_create <- function(x, es_thresh, ee_thresh = NULL, ss_thresh = NULL) {
   network <- list(node_code = all_nodes$patch_code, node_type = all_nodes$patch_type, node_areas = all_nodes$patch_area, net_links = net_links)
 
   # create fanmod representation of discrete network - assumes bidirectionality
-  # NB this is output to file and not returned by the model
+  # NB this is an output to file and not returned by the model
   bin_dist <- net_links
   diag(bin_dist) <- 0
   bin_dist[lower.tri(bin_dist)] <- 0
@@ -91,6 +91,26 @@ network_create <- function(x, es_thresh, ee_thresh = NULL, ss_thresh = NULL) {
   #               "_", dtime, ".txt")
 
   write_delim(fanmod, fname, col_names = FALSE)
+
+  #calculate networks metrics and add to x$params
+  #number of supply nodes
+  x$params$num_supply <- length(which(network$node_type == "supply"))
+  #number of demand nodes
+  x$params$num_demand <- length(which(network$node_type == "demand"))
+  #density of ecological-ecological (supply-supply) network
+  if (x$params$num_supply > 1) {
+    EE_network <-  network(as.matrix(network$net_links[which(network$node_type == "supply"), which(network$node_type == "supply")]), directed=FALSE, loops=TRUE)
+    x$params$ee_density <- network.density(EE_network)
+  } else {
+    x$params$ee_density <- as.matrix(network$net_links[which(network$node_type == "supply"), which(network$node_type == "supply")])[1,1]
+  }
+
+  #density of social-ecological (demand-supply) bipartite network
+  SE_matrix <- matrix(0,nrow=x$params$num_demand + x$params$num_supply, ncol=x$params$num_demand + x$params$num_supply)
+  SE_matrix[1:x$params$num_demand, (x$params$num_demand + 1):ncol(SE_matrix)] <- network$net_links[which(network$node_type == "demand"), which(network$node_type == "supply")]
+  SE_matrix[(x$params$num_demand + 1):nrow(SE_matrix), 1:x$params$num_demand] <- network$net_links[which(network$node_type == "supply"), which(network$node_type == "demand")]
+  SE_network <-  network(SE_matrix, bipartite=x$params$num_demand, directed = FALSE)
+  x$params$se_density <- network.density(SE_network, discount.bipartite=TRUE)
 
   return(list(network = network, params = x$params))
 }

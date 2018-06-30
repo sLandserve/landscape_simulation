@@ -22,13 +22,14 @@ library(sf)
 library(GGally)
 library(network)
 library(sna)
+library(igraph)
 library(gridExtra)
 
 # source functions
 sourceDirectory("R")
 ```
 
-In this document we can do the main analysis for the simulated landscapes examples, from simulating the landscapes through to analysing via equations and motifs. Any underlying functions can be saved in the `R` folder, and be called using `source(function_file.R)`. The outline of the workflow is as follows:
+In this document we can do the main analysis for the simulated landscapes examples, from simulating the landscapes through to analysing via equations and motifs. Any underlying functions can be saved in the `R` folder, and be called using `sourceDirectory("'R")`. The outline of the workflow is as follows:
 
 1. Simulate landscapes with the following parameters:
 
@@ -48,8 +49,8 @@ We will have landscapes for a range of each parameter, and for each parameter co
 
     Here we also generate a discrete networks for the network analysis based on the following parameters (we assume no demand-demand links for now):
 
-      * `ee_threshold`: distance threshold for ecological-ecological links (NULL if no ecological-ecological links)
-      * `se_threshold`: distance threshold for social-ecological links
+      * `ee_thresh`: distance threshold for ecological-ecological links (NULL if no ecological-ecological links)
+      * `se_thresh`: distance threshold for social-ecological links
 
 3. Calculate ES benefit for the landscape based on the network. This uses general equations for the generation of ES benefits based no the network (see 'benefit_functions.docx' for details). This produces a table with the ES benefits for each replicate. The parameters required are:
 
@@ -91,7 +92,7 @@ The initial simulated landscapes will use all combinations of the following rang
 - `f_supply` and `f_demand`: 0, 0.25, 0.5, 0.75, 1 (from low to high fragmentation)
 - `inter`: 0, 0.25, 0.5, 0.75, 1 (from low to high interspersion)
 
-```{r ls_params, eval = TRUE}
+```{r ls_sims, eval = FALSE}
 # THIS SECTION TO CHANGE ANY PARAMETERS OF THE SIMULATED LANDSCAPE ----
 # generate the parameter table
 nrows <- ncols <- 50
@@ -158,14 +159,18 @@ Next step is to create the distance matrix, and table which includes `ID`, `patc
 
 Here we also create a discrete social-ecological network based on the distance thresholds between supply-supply nodes (ecological-ecological links) and supply-demand links (social-ecological links). For this we need to define whether ecological-ecological links exist, and the distance thresholds for each type of link, as follows:  
 
-- `ee_link`: TRUE/FALSE indicating presence or absence of ecological-ecological links
-- `ee_threshold`: distance threshold for ecological-ecological links
-- `se_threshold`: distance threshold for social-ecological links
+- `ee_thresh`: distance threshold for ecological-ecological links (set to FALSE if not needed)
+- `se_thresh`: distance threshold for social-ecological links
+
+We also generate some simple network metrics here: (1) number of supply nodes, (2) number of demand nodes, (3) density of ecological-ecological (supply-supply) links, and (4) density of social-ecological (supply-demand) links.  
 
 This is where we also generate the network format for fanmod. For the fanmod file outputs, there are 4 columns (as per the expected fanmod input for coloured vertices): int1 = id of node one, int2 = id of node two, int3 = type of node one, int4 = type of node two. Types are supply, demand, or supply/demand.
 
-```{r network, eval = TRUE}
+```{r network, eval = FALSE}
+# reload the landscape data
 load("results/simulated_landscapes.Rda")
+
+sourceDirectory("R")
 
 # THIS SECTION TO CHANGE ANY PARAMETERS FOR GENERATING THE DISCRETE NETWORKS ----
 # Note to Jonathan - I've changed the function so that you set the ee_thresh to NULL if you don't want those links (and set that as default).
@@ -173,7 +178,7 @@ load("results/simulated_landscapes.Rda")
 ee_thresh <- 10
 es_thresh <- 10
 
-network <- lapply(sim_ls, function(x,ee_thresh, es_thresh) network_create(x, ee_thresh, es_thresh),ee_thresh = ee_thresh, es_thresh = es_thresh)
+network <- lapply(sim_ls, function(x, ee_thresh, es_thresh) network_create(x, ee_thresh, es_thresh),ee_thresh = ee_thresh, es_thresh = es_thresh)
 
 save(network, file = "results/landscape_networks.Rda")
 ```
@@ -215,8 +220,6 @@ alpha <- 1
 beta <- 0.1
 gamma <- 1
 eta <- 0.1
-
-sourceDirectory("R")
 
 benefit <- do.call(rbind, lapply(network, FUN = calculate_benefit, rival=rival, alpha=alpha, beta=beta, gamma=gamma, eta=eta))
 
