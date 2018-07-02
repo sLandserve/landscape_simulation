@@ -137,11 +137,11 @@ load("results/simulated_landscapes.Rda")
 ls_df <- ldply(sim_ls, function(x) {
   as.data.frame(x$ls, xy = TRUE) %>% cbind(x$params)
   }) %>%
-  filter(reps == 1) %>%
-  mutate(f_supply = paste0("f_supply = ", f_supply),
-         f_demand = paste0("f_demand = ", f_demand),
-         frag = paste0(f_supply, ", ", f_demand),
-         inter = paste0("inter = ", inter))
+  filter(rep == 1 & (f_supply == 0.25 | f_supply == 0.5 | f_supply == 0.75) & (f_demand == 0.25 | f_demand == 0.5 | f_demand == 0.75)) %>%
+  mutate(f_supply = paste0("fs=", f_supply),
+         f_demand = paste0("fd=", f_demand),
+         frag = paste0(f_supply, ",", f_demand),
+         inter = paste0("int=", inter))
 
 # plot the landscapes (this is just one example of each kind)
 ggplot(ls_df, aes(x = x, y = y, fill = layer_Categories)) +
@@ -149,8 +149,8 @@ ggplot(ls_df, aes(x = x, y = y, fill = layer_Categories)) +
   coord_equal() +
   scale_fill_viridis_d(name = "Category") +
   theme(axis.text = element_blank(), axis.title = element_blank(),
-        axis.line = element_blank(), axis.ticks = element_blank()) +
-  facet_grid(inter ~ frag)
+        axis.line = element_blank(), axis.ticks = element_blank(), strip.text.x = element_text(size=10),
+        strip.text.y = element_text(size=10)) + facet_grid(inter ~ frag)
 ```
 
 # Generate distance matrices and networks
@@ -192,11 +192,13 @@ load("results/landscape_networks.Rda")
 # JONATHAN: I've changed the node type so that it has text (then node code is 0 for supply and 1 for demand - this plot will need amending accordingly)
 
 # get the networks for the first replicates
-net_first_rep <- lapply(network, function(x) if(x$params["reps"] == 1) {return(x)})
+net_first_rep <- lapply(network, function(x) if(x$params["rep"] == 1 & (x$params["f_supply"] == 0.25 | x$params["f_supply"] == 0.75) & (x$params["f_demand"] == 0.25 | x$params["f_demand"] == 0.75) & (x$params["inter"] == 0.25 | x$params["inter"] == 0.75)) {return(x)})
 
-net_plots <- lapply(net_first_rep, function(x) {net <- network(x$network$net_links,directed=FALSE); net %v% "Node Type" <- node_type; return(ggnet2(net, size = log(x$network$node_areas), max_size = 2, edge.size = 0.01, color = "Node Type", palette = "Set2") + guides(color = FALSE, size = FALSE) + ggtitle(paste("f demand =", x$params["f_demand"], "& f supply =", x$params["f_supply"], sep=" ")))})
+net_first_rep <- net_first_rep[-which(sapply(net_first_rep, is.null))]
 
-grid.arrange(grobs = net_plots, layout_matrix = cbind(c(1,2,3,4,5),c(6,7,8,9,10),c(11,12,13,14,15),c(16,17,18,19,20),c(21,22,23,24,25)))
+net_plots <- lapply(net_first_rep, function(x) {net <- network(x$network$net_links,directed=FALSE); net %v% "Node Type" <- x$network$node_type; return(ggnet2(net, size = log(x$network$node_areas), max_size = 2, edge.size = 0.01, color = "Node Type", palette = "Set2") + guides(color = FALSE, size = FALSE) + ggtitle(paste("fd=", x$params["f_demand"], ",fs=", x$params["f_supply"],",int=", x$params["inter"], sep="")))})
+
+grid.arrange(grobs = net_plots)
 ```
 
 # ES benefit calculation
