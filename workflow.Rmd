@@ -7,16 +7,19 @@ output:
     toc_depth: 2
 ---
 
+The functions build for this workshop are available in the sLandserv package. Install this using: 
+
+`#install.packages("devtools")`
+`devtools::install_github("sLandserve/sLandserv")`
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 
 # required libraries
-library(R.utils)
 library(plyr)
 library(raster)
 library(tidyverse)
 library(cowplot)
-library(NLMR)
 library(landscapetools)
 library(sf)
 library(GGally)
@@ -24,12 +27,10 @@ library(network)
 library(sna)
 library(igraph)
 library(gridExtra)
-
-# source functions
-sourceDirectory("R")
+library(sLandserv)
 ```
 
-In this document we can do the main analysis for the simulated landscapes examples, from simulating the landscapes through to analysing via equations and motifs. Any underlying functions can be saved in the `R` folder, and be called using `sourceDirectory("'R")`. The outline of the workflow is as follows:
+In this document we can do the main analysis for the simulated landscapes examples, from simulating the landscapes through to analysing via equations and motifs. The outline of the workflow is as follows:
 
 1. Simulate landscapes with the following parameters:
 
@@ -72,8 +73,8 @@ Next step is to generate the benefits based on the distance type node type metri
 
 We have created a function `ls_create` which simulates social-ecological landscapes for a given amount and fragmentation of supply and demand, and interspersion between the two. Our simulated landscapes are built up from three neutral landscape models (NLM):
 
-- supply landscape: a fractal Brownian motion NLM where we control the amount (`p_supply`) and configuration (`f_supply`)
-- demand landscape: a fractal Brownian motion NLM where we control the amount (`p_demand`) and configuration (`f_demand`)
+- supply landscape: a midpoint displacement model NLM where we control the amount (`p_supply`) and configuration (`f_supply`)
+- demand landscape: a midpoint displacement model NLM where we control the amount (`p_demand`) and configuration (`f_demand`)
 - a gradient landscape: a planar gradient NLM
 
 The final social-ecological landscape is then created using the following steps:
@@ -88,15 +89,15 @@ For simplicity, we currently are not simulating supply/demand patches.
 
 The initial simulated landscapes will use all combinations of the following range of parameters:
 
-- `p_supply` and `p_demand`: fixed at 0.15
+- `p_supply` and `p_demand`: 0.1, 0.2, 0.3, 0.4, 0.5 
 - `f_supply` and `f_demand`: 0, 0.25, 0.5, 0.75, 1 (from low to high fragmentation)
 - `inter`: 0, 0.25, 0.5, 0.75, 1 (from low to high interspersion)
 
 ```{r ls_sims, eval = FALSE}
 # THIS SECTION TO CHANGE ANY PARAMETERS OF THE SIMULATED LANDSCAPE ----
 # generate the parameter table
-nrows <- ncols <- 50
-p_supply <- p_demand <- 0.15
+nrows <- ncols <- 65 # NB all landscapes will need to be of dimension 2^n + 1 due to way mid-point displacement method works
+p_supply <- p_demand <- seq(0.1, 0.5, by = 0.1)
 f_supply <- f_demand <- inter <- seq(0, 1, by = 0.25)
 reps <- c(1:100)
 
@@ -137,7 +138,7 @@ load("results/simulated_landscapes.Rda")
 ls_df <- ldply(sim_ls, function(x) {
   as.data.frame(x$ls, xy = TRUE) %>% cbind(x$params)
   }) %>%
-  filter(reps == 1) %>%
+  filter(rep == 1) %>%
   mutate(f_supply = paste0("f_supply = ", f_supply),
          f_demand = paste0("f_demand = ", f_demand),
          frag = paste0(f_supply, ", ", f_demand),
@@ -170,8 +171,6 @@ This is where we also generate the network format for fanmod. For the fanmod fil
 # reload the landscape data
 load("results/simulated_landscapes.Rda")
 
-sourceDirectory("R")
-
 # THIS SECTION TO CHANGE ANY PARAMETERS FOR GENERATING THE DISCRETE NETWORKS ----
 # Note to Jonathan - I've changed the function so that you set the ee_thresh to NULL if you don't want those links (and set that as default).
 
@@ -194,6 +193,7 @@ load("results/landscape_networks.Rda")
 # get the networks for the first replicates
 net_first_rep <- lapply(network, function(x) if(x$params["reps"] == 1) {return(x)})
 
+# JONATHAN: I've no idea what I've done to break this bit of code, but I have. Sorry. 
 net_plots <- lapply(net_first_rep, function(x) {net <- network(x$network$net_links,directed=FALSE); net %v% "Node Type" <- node_type; return(ggnet2(net, size = log(x$network$node_areas), max_size = 2, edge.size = 0.01, color = "Node Type", palette = "Set2") + guides(color = FALSE, size = FALSE) + ggtitle(paste("f demand =", x$params["f_demand"], "& f supply =", x$params["f_supply"], sep=" ")))})
 
 grid.arrange(grobs = net_plots, layout_matrix = cbind(c(1,2,3,4,5),c(6,7,8,9,10),c(11,12,13,14,15),c(16,17,18,19,20),c(21,22,23,24,25)))
@@ -221,11 +221,14 @@ beta <- 0.1
 gamma <- 1
 eta <- 0.1
 
+## this works but is long way around - need to fix (converts it from list of lists to dataframe)
 benefit <- do.call(rbind, lapply(network, FUN = calculate_benefit, rival=rival, alpha=alpha, beta=beta, gamma=gamma, eta=eta))
+benefit <- apply(benefit, 2, as.numeric)
+benefit <- data.frame(benefit)
 
 save(benefit, file = "results/benefit.Rda")
-
 ```
+
 # Network analysis
 
 ```{r network_analysis}
