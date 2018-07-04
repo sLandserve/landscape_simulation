@@ -60,8 +60,8 @@ for(i in 1:50) {
   
   # 4. calculate benefit ----
   rival <- c(TRUE, FALSE)
-  alpha <- c(-1, 0, 1)
-  beta <- seq(0.1, 0.5, by = 0.1)
+  alpha <- c(0.5, 1, 1.5)
+  beta <- seq(-0.2, 0.2, by = 0.1)
   gamma <- seq(0.1, 0.5, by = 0.1)
   
   benefit_params <- expand.grid(rival = rival, 
