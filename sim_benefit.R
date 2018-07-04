@@ -38,12 +38,10 @@ for(i in 1:50) {
                     }
   
   # 3. create networks ----
-  ee_thresh <- c(10, 30)
-  es_thresh <- c(10, 30)
+  ee_thresh <- c(NA, 20, 100)
+  es_thresh <- c(20, 100)
   thresholds <- expand.grid(ee_thresh = ee_thresh, 
                             es_thresh = es_thresh)
-  
-  
   
   networks <- apply(thresholds, 1, function(x) {
     foreach(ls = ls_sim, 
