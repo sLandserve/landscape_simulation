@@ -9,6 +9,7 @@ output:
 knitr::opts_chunk$set(echo = FALSE)
 library(plyr)
 library(tidyverse)
+library(cowplot)
 ```
 
 Load results of the simulations (`sim_benefit.R`). We filter the results to only take benefit function values $\alpha = 1, \beta = 0.1, \gamma = 0.1$.  
@@ -37,213 +38,236 @@ out <- ldply(f, function(x) get(load(x))) %>%
          inter = paste0("inter = ", inter))
 ```
 
-# Low supply (0.1), Low demand (0.1)
+# No supply-supply links, proximal supply-demand links
 
 ```{r}
 # calculate scenarios
-noneprox <- filter(out, p_supply == 0.1, p_demand == 0.1, is.na(ee_thres), es_thresh == 20)
-nonenot <- filter(out, p_supply == 0.1, p_demand == 0.1, is.na(ee_thres), es_thresh == 100)
-proxprox <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 20, es_thresh == 20)
-proxnot <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 20, es_thresh == 100)
-notnot <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 100, es_thresh == 100)
+lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, is.na(ee_thres), es_thresh == 20)
+lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, is.na(ee_thres), es_thresh == 20)
+highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, is.na(ee_thres), es_thresh == 20)
+highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, is.na(ee_thres), es_thresh == 20)
 ```
 
-## Low S, low D: No supply-supply links, proximal supply-demand links
-```{r}
-ggplot(noneprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+
+```{r, fig.width=15, fig.height = 8}
+p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
-```
+  facet_grid(rival ~ inter) + 
+  ggtitle("Low D, low S")
 
-
-## Low S, low D: No supply-supply links, full supply-demand links
-```{r}
-ggplot(nonenot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
-```
+  facet_grid(rival ~ inter) + 
+  ggtitle("Low D, high S")
 
-## Low S, low D: Proximal supply-supply links, proximal supply-demand links
-```{r}
-ggplot(proxprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
-```
+  facet_grid(rival ~ inter) + 
+  ggtitle("High D, low S")
 
-## Low S, low D: Proximal supply-supply links, full supply-demand links
-```{r}
-ggplot(proxnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
+  facet_grid(rival ~ inter) + 
+  ggtitle("High D, high S")
+
+plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
+```
+
+# No supply-supply links, full supply-demand links
+
+```{r}
+# calculate scenarios
+lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, is.na(ee_thres), es_thresh == 100)
+lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, is.na(ee_thres), es_thresh == 100)
+highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, is.na(ee_thres), es_thresh == 100)
+highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, is.na(ee_thres), es_thresh == 100)
 ```
 
 
-## Low S, low D: Full supply-supply links, full supply-demand links
-```{r}
-ggplot(notnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+```{r, fig.width=15, fig.height = 8}
+p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
-```
+  facet_grid(rival ~ inter) + 
+  ggtitle("Low D, low S")
 
-# Low supply (0.1), high demand (0.4)
-
-```{r}
-noneprox <- filter(out, p_supply == 0.1, p_demand == 0.4, is.na(ee_thres), es_thresh == 20)
-nonenot <- filter(out, p_supply == 0.1, p_demand == 0.4, is.na(ee_thres), es_thresh == 100)
-proxprox <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thres == 20, es_thresh == 20)
-proxnot <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thres == 20, es_thresh == 100)
-notnot <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thres == 100, es_thresh == 100)
-```
-
-
-## Low S, high D: No supply-supply links, proximal supply-demand links
-```{r}
-ggplot(noneprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
-```
+  facet_grid(rival ~ inter) + 
+  ggtitle("Low D, high S")
 
-
-## Low S, high D: No supply-supply links, full supply-demand links
-```{r}
-ggplot(nonenot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
-```
+  facet_grid(rival ~ inter) + 
+  ggtitle("High D, low S")
 
-## Low S, high D: Proximal supply-supply links, proximal supply-demand links
-```{r}
-ggplot(proxprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
+  facet_grid(rival ~ inter) + 
+  ggtitle("High D, high S")
+
+plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
 ```
 
-## Low S, high D: Proximal supply-supply links, full supply-demand links
+# Proximal supply-supply links, proximal supply-demand links
+
 ```{r}
-ggplot(proxnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+# calculate scenarios
+lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 20, es_thresh == 20)
+lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thres == 20, es_thresh == 20)
+highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thres == 20, es_thresh == 20)
+highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thres == 20, es_thresh == 20)
+```
+
+
+```{r, fig.width=15, fig.height = 8}
+p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
-```
+  facet_grid(rival ~ inter) + 
+  ggtitle("Low D, low S")
 
-
-## Low S, high D: Full supply-supply links, full supply-demand links
-```{r}
-ggplot(notnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
-```
+  facet_grid(rival ~ inter) + 
+  ggtitle("Low D, high S")
 
-# High supply (0.4), low demand (0.1)
-```{r}
-noneprox <- filter(out, p_supply == 0.1, p_demand == 0.1, is.na(ee_thres), es_thresh == 20)
-nonenot <- filter(out, p_supply == 0.1, p_demand == 0.1, is.na(ee_thres), es_thresh == 100)
-proxprox <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 20, es_thresh == 20)
-proxnot <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 20, es_thresh == 100)
-notnot <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 100, es_thresh == 100)
-```
-
-
-## High S, low D: No supply-supply links, proximal supply-demand links
-```{r}
-ggplot(noneprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
-```
+  facet_grid(rival ~ inter) + 
+  ggtitle("High D, low S")
 
-
-## High S, low D: No supply-supply links, full supply-demand links
-```{r}
-ggplot(nonenot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
+  facet_grid(rival ~ inter) + 
+  ggtitle("High D, high S")
+
+plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
 ```
 
-## High S, low D: Proximal supply-supply links, proximal supply-demand links
+# Proximal supply-supply links, full supply-demand links
+
 ```{r}
-ggplot(proxprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+# calculate scenarios
+lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 20, es_thresh == 100)
+lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thres == 20, es_thresh == 100)
+highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thres == 20, es_thresh == 100)
+highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thres == 20, es_thresh == 100)
+```
+
+
+```{r, fig.width=15, fig.height = 8}
+p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
-```
+  facet_grid(rival ~ inter) + 
+  ggtitle("Low D, low S")
 
-## High S, low D: Proximal supply-supply links, full supply-demand links
-```{r}
-ggplot(proxnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
-```
+  facet_grid(rival ~ inter) + 
+  ggtitle("Low D, high S")
 
-
-## High S, low D: Full supply-supply links, full supply-demand links
-```{r}
-ggplot(notnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
-```
+  facet_grid(rival ~ inter) + 
+  ggtitle("High D, low S")
 
-# High supply (0.4), high demand (0.4)
-
-```{r}
-noneprox <- filter(out, p_supply == 0.4, p_demand == 0.4, is.na(ee_thres), es_thresh == 20)
-nonenot <- filter(out, p_supply == 0.4, p_demand == 0.4, is.na(ee_thres), es_thresh == 100)
-proxprox <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thres == 20, es_thresh == 20)
-proxnot <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thres == 20, es_thresh == 100)
-notnot <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thres == 100, es_thresh == 100)
-```
-
-
-## High S, high D: No supply-supply links, proximal supply-demand links
-```{r}
-ggplot(noneprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
+  facet_grid(rival ~ inter) + 
+  ggtitle("High D, high S")
+
+plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
+```
+
+# Full supply-supply links, proximal supply-demand links
+
+```{r}
+# calculate scenarios
+lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 100, es_thresh == 20)
+lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thres == 100, es_thresh == 20)
+highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thres == 100, es_thresh == 20)
+highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thres == 100, es_thresh == 20)
 ```
 
 
-## High S, high D: No supply-supply links, full supply-demand links
-```{r}
-ggplot(nonenot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+```{r, fig.width=15, fig.height = 8}
+p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
+  facet_grid(rival ~ inter) + 
+  ggtitle("Low D, low S")
+
+p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+  geom_tile() + 
+  scale_fill_viridis_c() + 
+  facet_grid(rival ~ inter) + 
+  ggtitle("Low D, high S")
+
+p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+  geom_tile() + 
+  scale_fill_viridis_c() + 
+  facet_grid(rival ~ inter) + 
+  ggtitle("High D, low S")
+
+p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+  geom_tile() + 
+  scale_fill_viridis_c() + 
+  facet_grid(rival ~ inter) + 
+  ggtitle("High D, high S")
+
+plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
 ```
 
-## High S, high D: Proximal supply-supply links, proximal supply-demand links
-```{r}
-ggplot(proxprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
-```
+# Full supply-supply links, full supply-demand links
 
-## High S, high D: Proximal supply-supply links, full supply-demand links
 ```{r}
-ggplot(proxnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
+# calculate scenarios
+lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 100, es_thresh == 100)
+lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thres == 100, es_thresh == 100)
+highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thres == 100, es_thresh == 100)
+highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thres == 100, es_thresh == 100)
 ```
 
 
-## High S, high D: Full supply-supply links, full supply-demand links
-```{r}
-ggplot(notnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+```{r, fig.width=15, fig.height = 8}
+p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter)
+  facet_grid(rival ~ inter) + 
+  ggtitle("Low D, low S")
+
+p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+  geom_tile() + 
+  scale_fill_viridis_c() + 
+  facet_grid(rival ~ inter) + 
+  ggtitle("Low D, high S")
+
+p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+  geom_tile() + 
+  scale_fill_viridis_c() + 
+  facet_grid(rival ~ inter) + 
+  ggtitle("High D, low S")
+
+p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+  geom_tile() + 
+  scale_fill_viridis_c() + 
+  facet_grid(rival ~ inter) + 
+  ggtitle("High D, high S")
+
+plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
 ```
