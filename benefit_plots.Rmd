@@ -1,15 +1,17 @@
 ---
 title: "Benefit Plots"
-output: html_document
+output: 
+  html_document:
+    keep_md: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 library(plyr)
 library(tidyverse)
 ```
 
-Load results of the simulations (`sim_benefit.R`)
+Load results of the simulations (`sim_benefit.R`). We filter the results to only take benefit function values $\alpha = 1, \beta = 0.1, \gamma = 0.1$.  
 
 ```{r}
 f <- list.files("results", pattern = "file", full.names = TRUE)
@@ -28,7 +30,11 @@ out <- ldply(f, function(x) get(load(x))) %>%
             benefit_sd = sd(benefit)) %>% 
   filter(alpha == "1", 
          beta == "0.1", 
-         gamma == "0.1")
+         gamma == "0.1") %>% 
+  ungroup %>% 
+  mutate(rival = case_when(rival == FALSE ~ "Non-rival",
+                           TRUE ~ "Rival"),
+         inter = paste0("inter = ", inter))
 ```
 
 # Low supply (0.1), Low demand (0.1)
@@ -42,7 +48,7 @@ proxnot <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 20, es_thre
 notnot <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 100, es_thresh == 100)
 ```
 
-## No supply-supply links, proximal supply-demand links
+## Low S, low D: No supply-supply links, proximal supply-demand links
 ```{r}
 ggplot(noneprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -51,7 +57,7 @@ ggplot(noneprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
 ```
 
 
-## No supply-supply links, full supply-demand links
+## Low S, low D: No supply-supply links, full supply-demand links
 ```{r}
 ggplot(nonenot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -59,7 +65,7 @@ ggplot(nonenot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
   facet_grid(rival ~ inter)
 ```
 
-## Proximal supply-supply links, proximal supply-demand links
+## Low S, low D: Proximal supply-supply links, proximal supply-demand links
 ```{r}
 ggplot(proxprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -67,7 +73,7 @@ ggplot(proxprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
   facet_grid(rival ~ inter)
 ```
 
-## Proximal supply-supply links, full supply-demand links
+## Low S, low D: Proximal supply-supply links, full supply-demand links
 ```{r}
 ggplot(proxnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -76,7 +82,7 @@ ggplot(proxnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
 ```
 
 
-## Full supply-supply links, full supply-demand links
+## Low S, low D: Full supply-supply links, full supply-demand links
 ```{r}
 ggplot(notnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -95,7 +101,7 @@ notnot <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thres == 100, es_thre
 ```
 
 
-## No supply-supply links, proximal supply-demand links
+## Low S, high D: No supply-supply links, proximal supply-demand links
 ```{r}
 ggplot(noneprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -104,7 +110,7 @@ ggplot(noneprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
 ```
 
 
-## No supply-supply links, full supply-demand links
+## Low S, high D: No supply-supply links, full supply-demand links
 ```{r}
 ggplot(nonenot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -112,7 +118,7 @@ ggplot(nonenot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
   facet_grid(rival ~ inter)
 ```
 
-## Proximal supply-supply links, proximal supply-demand links
+## Low S, high D: Proximal supply-supply links, proximal supply-demand links
 ```{r}
 ggplot(proxprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -120,7 +126,7 @@ ggplot(proxprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
   facet_grid(rival ~ inter)
 ```
 
-## Proximal supply-supply links, full supply-demand links
+## Low S, high D: Proximal supply-supply links, full supply-demand links
 ```{r}
 ggplot(proxnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -129,7 +135,7 @@ ggplot(proxnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
 ```
 
 
-## Full supply-supply links, full supply-demand links
+## Low S, high D: Full supply-supply links, full supply-demand links
 ```{r}
 ggplot(notnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -147,7 +153,7 @@ notnot <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 100, es_thre
 ```
 
 
-## No supply-supply links, proximal supply-demand links
+## High S, low D: No supply-supply links, proximal supply-demand links
 ```{r}
 ggplot(noneprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -156,7 +162,7 @@ ggplot(noneprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
 ```
 
 
-## No supply-supply links, full supply-demand links
+## High S, low D: No supply-supply links, full supply-demand links
 ```{r}
 ggplot(nonenot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -164,7 +170,7 @@ ggplot(nonenot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
   facet_grid(rival ~ inter)
 ```
 
-## Proximal supply-supply links, proximal supply-demand links
+## High S, low D: Proximal supply-supply links, proximal supply-demand links
 ```{r}
 ggplot(proxprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -172,7 +178,7 @@ ggplot(proxprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
   facet_grid(rival ~ inter)
 ```
 
-## Proximal supply-supply links, full supply-demand links
+## High S, low D: Proximal supply-supply links, full supply-demand links
 ```{r}
 ggplot(proxnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -181,7 +187,7 @@ ggplot(proxnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
 ```
 
 
-## Full supply-supply links, full supply-demand links
+## High S, low D: Full supply-supply links, full supply-demand links
 ```{r}
 ggplot(notnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -200,7 +206,7 @@ notnot <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thres == 100, es_thre
 ```
 
 
-## No supply-supply links, proximal supply-demand links
+## High S, high D: No supply-supply links, proximal supply-demand links
 ```{r}
 ggplot(noneprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -209,7 +215,7 @@ ggplot(noneprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
 ```
 
 
-## No supply-supply links, full supply-demand links
+## High S, high D: No supply-supply links, full supply-demand links
 ```{r}
 ggplot(nonenot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -217,7 +223,7 @@ ggplot(nonenot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
   facet_grid(rival ~ inter)
 ```
 
-## Proximal supply-supply links, proximal supply-demand links
+## High S, high D: Proximal supply-supply links, proximal supply-demand links
 ```{r}
 ggplot(proxprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -225,7 +231,7 @@ ggplot(proxprox, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
   facet_grid(rival ~ inter)
 ```
 
-## Proximal supply-supply links, full supply-demand links
+## High S, high D: Proximal supply-supply links, full supply-demand links
 ```{r}
 ggplot(proxnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
@@ -234,7 +240,7 @@ ggplot(proxnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) +
 ```
 
 
-## Full supply-supply links, full supply-demand links
+## High S, high D: Full supply-supply links, full supply-demand links
 ```{r}
 ggplot(notnot, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
   geom_tile() + 
