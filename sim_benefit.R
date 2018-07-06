@@ -23,7 +23,8 @@ for(i in 1:50) {
   
   # 2. simulate landscapes ----
   
-  cl <- makeCluster(4) # create parellel clusters
+  cl <- makeCluster(4) 
+  # create parellel clusters
   registerDoSNOW(cl)
   
   ls_sim <- foreach(i=1:nrow(param_table),
