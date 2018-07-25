@@ -7,7 +7,8 @@ for(i in 1:50) {
   strt <- Sys.time()
   
   # 1. generate the parameter table ----
-  nrows <- ncols <- 65 # NB all landscapes will need to be of dimension 2^n + 1 due to way mid-point displacement method works
+  # NB all landscapes will need to be of dimension 2^n + 1 due to way mid-point displacement method works
+  nrows <- ncols <- 65 
   p_supply <- p_demand <- c(0.1, 0.4)
   f_supply <- f_demand <- inter <- seq(0, 1, by = 0.25)
   
@@ -22,7 +23,8 @@ for(i in 1:50) {
   
   # 2. simulate landscapes ----
   
-  cl <- makeCluster(4) # create parellel clusters
+  cl <- makeCluster(4) 
+  # create parellel clusters
   registerDoSNOW(cl)
   
   ls_sim <- foreach(i=1:nrow(param_table),
