@@ -15,10 +15,10 @@ library(cowplot)
 Load results of the simulations (`sim_benefit.R`). We filter the results to only take benefit function values $\alpha = 1, \beta = 0.1, \gamma = 0.1$.  
 
 ```{r}
-f <- list.files("results", pattern = "file", full.names = TRUE)
+f <- list.files("results/benefit_replicates/", pattern = "file", full.names = TRUE)
 
 out <- ldply(f, function(x) get(load(x))) %>% 
-  group_by(p_supply, p_demand, f_supply, f_demand, inter, es_thresh, ee_thres, rival, alpha, beta, gamma) %>% 
+  group_by(p_supply, p_demand, f_supply, f_demand, inter, es_thresh, ee_thresh, rival, alpha, beta, gamma) %>% 
   summarise(num_supply_mean = mean(num_supply),
             num_supply_sd = sd(num_supply),
             num_demand_mean = mean(num_demand),
