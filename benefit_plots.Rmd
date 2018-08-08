@@ -3,35 +3,36 @@ title: "Benefit Plots"
 output: 
   html_document:
     keep_md: true
+params:
+  fn: "mean"
+  measure: "benefit"
+  alpha_val: 1
+  beta_val: 0
+  gamma_val: 0.5
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
-library(plyr)
 library(tidyverse)
 library(cowplot)
+
+cv <- function(x, na.rm = TRUE) {
+  sd(x)/mean(x)
+}
 ```
 
-Load results of the simulations (`sim_benefit.R`). We filter the results to only take benefit function values $\alpha = 1, \beta = 0, \gamma = 0.1$.  
+Load results of the simulations (`es_benefit.R`). 
+
+Plots show `r params$fn` `r params$measure` for alpha = `r params$alpha_val`; beta = `r params$beta_val`; gamma = `r params$gamma_val`
 
 ```{r}
-f <- list.files("results/benefit_replicates/", pattern = "file", full.names = TRUE)
-
-out <- ldply(f, function(x) get(load(x))) %>% 
+load("results/benefit_all_replicates.rda")
+out <- out %>% 
   group_by(p_supply, p_demand, f_supply, f_demand, inter, es_thresh, ee_thresh, rival, alpha, beta, gamma) %>% 
-  summarise(num_supply_mean = mean(num_supply),
-            num_supply_sd = sd(num_supply),
-            num_demand_mean = mean(num_demand),
-            num_demand_sd = sd(num_demand),
-            ee_density_mean = mean(ee_density, na.rm=TRUE),
-            ee_density_sd = sd(ee_density, na.rm=TRUE),
-            es_density_mean = mean(es_density, na.rm=TRUE),
-            es_density_sd = sd(es_density, na.rm=TRUE),
-            benefit_mean = mean(benefit),
-            benefit_sd = sd(benefit)) %>% 
-  filter(alpha == 1, 
-         beta == 0.2, 
-         gamma == 0.1) %>% 
+  summarise(value = get(params$fn)(get(params$measure), na.rm=TRUE)) %>% 
+  filter(alpha == params$alpha_val, 
+         beta == params$beta_val, 
+         gamma == params$gamma_val) %>% 
   ungroup %>% 
   mutate(rival = case_when(rival == FALSE ~ "Non-rival",
                            TRUE ~ "Rival"),
@@ -50,25 +51,25 @@ highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, is.na(ee_thresh), es_t
 
 
 ```{r, fig.width=15, fig.height = 8}
-p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("Low D, low S")
 
-p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("Low D, high S")
 
-p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("High D, low S")
 
-p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
@@ -89,25 +90,25 @@ highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, is.na(ee_thresh), es_t
 
 
 ```{r, fig.width=15, fig.height = 8}
-p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("Low D, low S")
 
-p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("Low D, high S")
 
-p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("High D, low S")
 
-p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
@@ -128,25 +129,25 @@ highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thresh == 20, es_th
 
 
 ```{r, fig.width=15, fig.height = 8}
-p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("Low D, low S")
 
-p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("Low D, high S")
 
-p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("High D, low S")
 
-p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
@@ -167,25 +168,25 @@ highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thresh == 20, es_th
 
 
 ```{r, fig.width=15, fig.height = 8}
-p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("Low D, low S")
 
-p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("Low D, high S")
 
-p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("High D, low S")
 
-p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
@@ -206,25 +207,25 @@ highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thresh == 100, es_t
 
 
 ```{r, fig.width=15, fig.height = 8}
-p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("Low D, low S")
 
-p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("Low D, high S")
 
-p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("High D, low S")
 
-p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
@@ -245,25 +246,25 @@ highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thresh == 100, es_t
 
 
 ```{r, fig.width=15, fig.height = 8}
-p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("Low D, low S")
 
-p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("Low D, high S")
 
-p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 
   ggtitle("High D, low S")
 
-p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = benefit_mean)) + 
+p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
   geom_tile() + 
   scale_fill_viridis_c() + 
   facet_grid(rival ~ inter) + 

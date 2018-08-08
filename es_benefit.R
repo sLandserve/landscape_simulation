@@ -10,9 +10,16 @@ f_supply <- f_demand <- inter <- seq(0, 1, by = 0.25)
 ee_thresh <- c(NA, 20, 100)
 es_thresh <- c(20, 100)
 rival <- c(TRUE, FALSE)
-alpha <- c(0.5, 1, 1.5)
-beta <- c(-0.2, 0, 0.2)
-gamma <- c(0.1, 0.5)
+alpha <- 1
+beta <- 0.01
+gamma <- 1
+
+# THOUGHTS ABOUT PARAMETERS 
+# beta - strong effect on the outcome. We either need to really
+# think about the range of beta, or change it. connected_area^beta might make more sense
+# than exp(beta*connected_area)
+
+# trying a run with one parameter combination for now
 
 strt <- Sys.time()
 
