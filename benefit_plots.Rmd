@@ -12,7 +12,7 @@ library(tidyverse)
 library(cowplot)
 ```
 
-Load results of the simulations (`sim_benefit.R`). We filter the results to only take benefit function values $\alpha = 1, \beta = 0.1, \gamma = 0.1$.  
+Load results of the simulations (`sim_benefit.R`). We filter the results to only take benefit function values $\alpha = 1, \beta = 0, \gamma = 0.1$.  
 
 ```{r}
 f <- list.files("results/benefit_replicates/", pattern = "file", full.names = TRUE)
@@ -23,15 +23,15 @@ out <- ldply(f, function(x) get(load(x))) %>%
             num_supply_sd = sd(num_supply),
             num_demand_mean = mean(num_demand),
             num_demand_sd = sd(num_demand),
-            ee_density_mean = mean(ee_density),
-            ee_density_sd = sd(ee_density),
-            se_density_mean = mean(se_density),
-            se_density_sd = sd(se_density),
+            ee_density_mean = mean(ee_density, na.rm=TRUE),
+            ee_density_sd = sd(ee_density, na.rm=TRUE),
+            es_density_mean = mean(es_density, na.rm=TRUE),
+            es_density_sd = sd(es_density, na.rm=TRUE),
             benefit_mean = mean(benefit),
             benefit_sd = sd(benefit)) %>% 
-  filter(alpha == "1", 
-         beta == "0.1", 
-         gamma == "0.1") %>% 
+  filter(alpha == 1, 
+         beta == 0.2, 
+         gamma == 0.1) %>% 
   ungroup %>% 
   mutate(rival = case_when(rival == FALSE ~ "Non-rival",
                            TRUE ~ "Rival"),
@@ -42,10 +42,10 @@ out <- ldply(f, function(x) get(load(x))) %>%
 
 ```{r}
 # calculate scenarios
-lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, is.na(ee_thres), es_thresh == 20)
-lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, is.na(ee_thres), es_thresh == 20)
-highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, is.na(ee_thres), es_thresh == 20)
-highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, is.na(ee_thres), es_thresh == 20)
+lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, is.na(ee_thresh), es_thresh == 20)
+lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, is.na(ee_thresh), es_thresh == 20)
+highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, is.na(ee_thresh), es_thresh == 20)
+highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, is.na(ee_thresh), es_thresh == 20)
 ```
 
 
@@ -81,10 +81,10 @@ plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
 
 ```{r}
 # calculate scenarios
-lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, is.na(ee_thres), es_thresh == 100)
-lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, is.na(ee_thres), es_thresh == 100)
-highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, is.na(ee_thres), es_thresh == 100)
-highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, is.na(ee_thres), es_thresh == 100)
+lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, is.na(ee_thresh), es_thresh == 100)
+lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, is.na(ee_thresh), es_thresh == 100)
+highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, is.na(ee_thresh), es_thresh == 100)
+highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, is.na(ee_thresh), es_thresh == 100)
 ```
 
 
@@ -120,10 +120,10 @@ plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
 
 ```{r}
 # calculate scenarios
-lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 20, es_thresh == 20)
-lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thres == 20, es_thresh == 20)
-highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thres == 20, es_thresh == 20)
-highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thres == 20, es_thresh == 20)
+lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thresh == 20, es_thresh == 20)
+lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thresh == 20, es_thresh == 20)
+highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thresh == 20, es_thresh == 20)
+highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thresh == 20, es_thresh == 20)
 ```
 
 
@@ -159,10 +159,10 @@ plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
 
 ```{r}
 # calculate scenarios
-lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 20, es_thresh == 100)
-lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thres == 20, es_thresh == 100)
-highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thres == 20, es_thresh == 100)
-highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thres == 20, es_thresh == 100)
+lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thresh == 20, es_thresh == 100)
+lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thresh == 20, es_thresh == 100)
+highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thresh == 20, es_thresh == 100)
+highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thresh == 20, es_thresh == 100)
 ```
 
 
@@ -198,10 +198,10 @@ plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
 
 ```{r}
 # calculate scenarios
-lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 100, es_thresh == 20)
-lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thres == 100, es_thresh == 20)
-highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thres == 100, es_thresh == 20)
-highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thres == 100, es_thresh == 20)
+lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thresh == 100, es_thresh == 20)
+lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thresh == 100, es_thresh == 20)
+highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thresh == 100, es_thresh == 20)
+highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thresh == 100, es_thresh == 20)
 ```
 
 
@@ -237,10 +237,10 @@ plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
 
 ```{r}
 # calculate scenarios
-lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thres == 100, es_thresh == 100)
-lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thres == 100, es_thresh == 100)
-highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thres == 100, es_thresh == 100)
-highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thres == 100, es_thresh == 100)
+lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thresh == 100, es_thresh == 100)
+lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thresh == 100, es_thresh == 100)
+highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thresh == 100, es_thresh == 100)
+highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thresh == 100, es_thresh == 100)
 ```
 
 
