@@ -11,7 +11,7 @@ ee_thresh <- c(NA, 20, 100)
 es_thresh <- c(20, 100)
 rival <- c(TRUE, FALSE)
 alpha <- 1
-beta <- 0.01
+beta <- c(-0.01, 0, 0.01)
 gamma <- 1
 
 # THOUGHTS ABOUT PARAMETERS 
