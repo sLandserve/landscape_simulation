@@ -8,7 +8,7 @@ params:
   measure: "benefit"
   alpha_val: 1
   beta_val: 0
-  gamma_val: 0.5
+  gamma_val: 1
 ---
 
 ```{r setup, include=FALSE}
