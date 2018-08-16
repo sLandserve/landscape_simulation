@@ -14,261 +14,158 @@ params:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
-library(cowplot)
+library(broom)
+library(knitr)
 
-cv <- function(x, na.rm = TRUE) {
-  sd(x)/mean(x)
-}
+# commonality analysis for GLM
+source("ca_glm.R")
 ```
 
-Load results of the simulations (`es_benefit.R`). 
+In this document, we analyse the results of the simulations generated using `es_benefit.R`. 
 
-Plots show `r params$fn` `r params$measure` for alpha = `r params$alpha_val`; beta = `r params$beta_val`; gamma = `r params$gamma_val`
+# Benefit sensitivity
 
-```{r}
+In this section, for each subgroup (unique combinations of ES type based on link scenario, amount scenario, and rival/non-rival), we fit a Poisson GLM with all remaining parameters as covariates (alpha, beta, gamma, f_supply, f_demand, inter). We present the results in two plots: 1) sensitivity to landscape configuration; and 2) sensitivity to benefit function parameters. 
+
+Initial BRT models (using `gbm` package) showed that the results of benefit were most influenced by amount scenario, link scenario and rival/non-rival. To avoid swamping the results or ending up with very complicated interaction combinations to interpret, I chose to model as subsets for now. We may wish to revisit this in a more robust "full data" analysis with interactions.
+
+```{r define_functions}
+# change here to change model structure
+mod_fit <- function(dat) {
+  glm(benefit ~ beta + f_supply + f_demand + inter, data = dat, family = "poisson")
+}
+
+# change here to change variables that are scaled
+scale_cols <- function(x) {
+  scale_this <- function(y) as.vector(scale(y))
+  mutate_at(x, .vars = vars(beta, f_supply, f_demand, inter), .funs = funs(scale_this))
+}
+
+```
+
+```{r load_data}
 load("results/benefit_all_replicates.rda")
-out <- out %>% 
-  group_by(p_supply, p_demand, f_supply, f_demand, inter, es_thresh, ee_thresh, rival, alpha, beta, gamma) %>% 
-  summarise(value = get(params$fn)(get(params$measure), na.rm=TRUE)) %>% 
-  filter(alpha == params$alpha_val, 
-         beta == params$beta_val, 
-         gamma == params$gamma_val) %>% 
-  ungroup %>% 
+```
+
+```{r manipulate_data}
+dat <- out %>% 
   mutate(rival = case_when(rival == FALSE ~ "Non-rival",
                            TRUE ~ "Rival"),
-         inter = paste0("inter = ", inter))
+         amt_scenario = case_when(p_supply == 0.1 & p_demand == 0.1 ~ "LowS_LowD",
+                                  p_supply == 0.4 & p_demand == 0.1 ~ "HighS_LowD",
+                                  p_supply == 0.1 & p_demand == 0.4 ~ "LowS_HighD",
+                                  p_supply == 0.4 & p_demand == 0.4 ~ "HighS_HighD",
+                                  TRUE ~ "None"),
+         link_scenario = case_when(is.na(ee_thresh) & es_thresh == 20 ~ "NoSS_ProxSD",
+                                   is.na(ee_thresh) & es_thresh == 100 ~ "NoSS_FullSD",
+                                   ee_thresh == 20 & es_thresh == 20 ~ "ProxSS_ProxSD",
+                                   ee_thresh == 20 & es_thresh == 100 ~ "ProxSS_FullSD",
+                                   ee_thresh == 100 & es_thresh == 100 ~ "FullSS_FullSD",
+                                   ee_thresh == 100 & es_thresh == 20 ~ "FullSS_ProxSD",
+                                   TRUE ~ "None")) %>% 
+  select(-nrow, -ncol, -p_supply, -p_demand, -ee_thresh, -es_thresh) %>% 
+  group_by(amt_scenario, link_scenario, rival) %>% 
+  nest()
 ```
 
-# No supply-supply links, proximal supply-demand links
-
-```{r}
-# calculate scenarios
-lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, is.na(ee_thresh), es_thresh == 20)
-lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, is.na(ee_thresh), es_thresh == 20)
-highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, is.na(ee_thresh), es_thresh == 20)
-highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, is.na(ee_thresh), es_thresh == 20)
+```{r fit_models, warning=FALSE}
+mod <- dat %>% 
+  mutate(data_scaled = map(data, scale_cols),
+         mod = map(data_scaled, mod_fit),
+         mod_tidy = map(mod, tidy),
+         mod_glance = map(mod, glance))
 ```
 
-
-```{r, fig.width=15, fig.height = 8}
-p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("Low D, low S")
-
-p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("Low D, high S")
-
-p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("High D, low S")
-
-p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("High D, high S")
-
-plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
+```{r get_coeffs}
+coeffs <- mod %>% 
+  select(amt_scenario, link_scenario, rival, mod_tidy) %>% 
+  unnest() %>% 
+  mutate_if(is.numeric, round, 3) 
 ```
 
-# No supply-supply links, full supply-demand links
+## Benefit distribution by scenario
 
-```{r}
-# calculate scenarios
-lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, is.na(ee_thresh), es_thresh == 100)
-lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, is.na(ee_thresh), es_thresh == 100)
-highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, is.na(ee_thresh), es_thresh == 100)
-highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, is.na(ee_thresh), es_thresh == 100)
+```{r benefit_distrib}
+distrib <- mod %>% 
+  select(amt_scenario, link_scenario, rival, data) %>% 
+  unnest()
+
+ggplot(distrib, aes(x = benefit, fill = rival)) + 
+  geom_histogram(position = "identity") + 
+  facet_grid(amt_scenario ~ link_scenario, scales = "free_x")
+
+distrib %>%
+  group_by(amt_scenario, link_scenario, rival) %>% 
+  summarise(benefit_mean = mean(benefit),
+            benefit_var = var(benefit)) %>% 
+  filter(benefit_var < 1)
 ```
 
+Several scenarios have little to no variation in benefit - the models are not useful for these scenarios. NB they all have in common proximity independent supply-demand links BUT it does not include ALL proximity independent supply-demand scenarios. We may want to remove these scenarios from further analysis. 
 
-```{r, fig.width=15, fig.height = 8}
-p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("Low D, low S")
+## Model fit
 
-p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("Low D, high S")
+Calculating D (1 - deviance/null.deviance). Note that D is nonsensical for the scenarios with little to no variance in benefit. 
 
-p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("High D, low S")
+```{r mod_r2}
+mod_r2 <- mod %>%
+  select(amt_scenario, link_scenario, rival, mod_glance) %>% 
+  unnest() %>% 
+  mutate(D = 1 - (deviance / null.deviance),
+         D = ifelse(D > 1|is.infinite(D), NA, D)) %>% 
+  select(amt_scenario, link_scenario, rival, D)
 
-p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("High D, high S")
-
-plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
+ggplot(mod_r2, aes(x = rival, y = D, fill = rival)) + 
+  geom_bar(stat = "identity") + 
+  facet_grid(amt_scenario ~ link_scenario) + 
+  labs(x = "", y = "D (1 - deviance/null.deviance")
 ```
 
-# Proximal supply-supply links, proximal supply-demand links
+Key results: 
 
-```{r}
-# calculate scenarios
-lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thresh == 20, es_thresh == 20)
-lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thresh == 20, es_thresh == 20)
-highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thresh == 20, es_thresh == 20)
-highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thresh == 20, es_thresh == 20)
+- As above, cannot really trust results from NoSS_FullSD due to NA D values. 
+- Model fit as calculated by D is larger for rival than non-rival in most cases. 
+
+Based on the above two set of results, I would be tempted to remove any scenario with proximity independent supply-demand links from the analysis due to the lack of variation in benefit in most cases. 
+
+## Effect of landscape configuration
+
+```{r lsconfig_plot}
+# sensitivity to landscape configuration
+ggplot(coeffs %>% filter(term %in% c("f_supply", "f_demand", "inter")), 
+       aes(x = term, y = estimate, fill = rival)) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  facet_grid(amt_scenario ~ link_scenario) + 
+  labs(x = "", y = "Standardised coefficient estimate")
 ```
 
+Key results:
 
-```{r, fig.width=15, fig.height = 8}
-p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("Low D, low S")
+- None of the landscape configuration parameters have an effect on benefit when supply-demand links are full. 
+- Landscape configuration is more important for rival services
+- Fragmentation is more important than interspersion when supply is high
+- Interspersion if more important than fragmentation when both supply and demand are low
+- Fragmentation and interspersion are equally important when supply is low and demand is high
+- These patterns hold across all service types, although the difference between rival and non-rival is greatest when supply is high and supply-supply links are proximal or non-existent. 
 
-p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("Low D, high S")
+# Effect of benefit function parameters 
 
-p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("High D, low S")
-
-p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("High D, high S")
-
-plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
+```{r bfparam_plot}
+# sensitivity to benefit parameters
+ggplot(coeffs %>% filter(term %in% c("alpha", "beta", "gamma")), 
+       aes(x = term, y = estimate, fill = rival)) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  facet_grid(amt_scenario ~ link_scenario) + 
+  labs(x = "", y = "Standardised coefficient estimate")
 ```
 
-# Proximal supply-supply links, full supply-demand links
+Key results: 
 
-```{r}
-# calculate scenarios
-lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thresh == 20, es_thresh == 100)
-lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thresh == 20, es_thresh == 100)
-highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thresh == 20, es_thresh == 100)
-highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thresh == 20, es_thresh == 100)
-```
+- beta is not important when there are no supply-supply links
+- beta has more of an effect on benefit for rival services
+- The difference between rival/non-rival is least strong when supply is high and both types of links are full (proximity independent)
+- beta has little effect on non-rival services when supply is proximity dependent (need to think about this - there's more connected supply in proximity independent services --> higher benefit?)
 
+# Relationship between benefit and network metrics
 
-```{r, fig.width=15, fig.height = 8}
-p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("Low D, low S")
-
-p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("Low D, high S")
-
-p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("High D, low S")
-
-p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("High D, high S")
-
-plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
-```
-
-# Full supply-supply links, proximal supply-demand links
-
-```{r}
-# calculate scenarios
-lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thresh == 100, es_thresh == 20)
-lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thresh == 100, es_thresh == 20)
-highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thresh == 100, es_thresh == 20)
-highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thresh == 100, es_thresh == 20)
-```
-
-
-```{r, fig.width=15, fig.height = 8}
-p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("Low D, low S")
-
-p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("Low D, high S")
-
-p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("High D, low S")
-
-p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("High D, high S")
-
-plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
-```
-
-# Full supply-supply links, full supply-demand links
-
-```{r}
-# calculate scenarios
-lowlow <- filter(out, p_supply == 0.1, p_demand == 0.1, ee_thresh == 100, es_thresh == 100)
-lowhigh <- filter(out, p_supply == 0.4, p_demand == 0.1, ee_thresh == 100, es_thresh == 100)
-highlow <- filter(out, p_supply == 0.1, p_demand == 0.4, ee_thresh == 100, es_thresh == 100)
-highhigh <- filter(out, p_supply == 0.4, p_demand == 0.4, ee_thresh == 100, es_thresh == 100)
-```
-
-
-```{r, fig.width=15, fig.height = 8}
-p_lowlow <- ggplot(lowlow, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("Low D, low S")
-
-p_lowhigh <- ggplot(lowhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("Low D, high S")
-
-p_highlow <- ggplot(highlow, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("High D, low S")
-
-p_highhigh <- ggplot(highhigh, aes(x = f_supply, y = f_demand, fill = value)) + 
-  geom_tile() + 
-  scale_fill_viridis_c() + 
-  facet_grid(rival ~ inter) + 
-  ggtitle("High D, high S")
-
-plot_grid(p_lowlow, p_lowhigh, p_highlow, p_highhigh, nrow = 2)
-```
+Need to work this out - will need to be the relationship between metrics once everything else is accounted for. 
