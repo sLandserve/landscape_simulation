@@ -10,9 +10,9 @@ f_supply <- f_demand <- inter <- seq(0, 1, by = 0.25)
 ee_thresh <- c(NA, 20, 100)
 es_thresh <- c(20, 100)
 rival <- c(TRUE, FALSE)
-alpha <- 1
+alpha <- c(0.5, 1, 1.5)
 beta <- c(-0.01, 0, 0.01)
-gamma <- 1
+gamma <- c(0.000001, 0.001, 0.1)
 
 # THOUGHTS ABOUT PARAMETERS 
 # beta - strong effect on the outcome. We either need to really
