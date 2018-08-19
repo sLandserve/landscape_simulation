@@ -1,14 +1,6 @@
 ---
 title: "Benefit Plots"
-output: 
-  html_document:
-    keep_md: true
-params:
-  fn: "mean"
-  measure: "benefit"
-  alpha_val: 1
-  beta_val: 0
-  gamma_val: 1
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -23,32 +15,12 @@ source("ca_glm.R")
 
 In this document, we analyse the results of the simulations generated using `es_benefit.R`. 
 
-# Benefit sensitivity
-
-In this section, for each subgroup (unique combinations of ES type based on link scenario, amount scenario, and rival/non-rival), we fit a Poisson GLM with all remaining parameters as covariates (alpha, beta, gamma, f_supply, f_demand, inter). We present the results in two plots: 1) sensitivity to landscape configuration; and 2) sensitivity to benefit function parameters. 
-
-Initial BRT models (using `gbm` package) showed that the results of benefit were most influenced by amount scenario, link scenario and rival/non-rival. To avoid swamping the results or ending up with very complicated interaction combinations to interpret, I chose to model as subsets for now. We may wish to revisit this in a more robust "full data" analysis with interactions.
-
-```{r define_functions}
-# change here to change model structure
-mod_fit <- function(dat) {
-  glm(benefit ~ beta + f_supply + f_demand + inter, data = dat, family = "poisson")
-}
-
-# change here to change variables that are scaled
-scale_cols <- function(x) {
-  scale_this <- function(y) as.vector(scale(y))
-  mutate_at(x, .vars = vars(beta, f_supply, f_demand, inter), .funs = funs(scale_this))
-}
-
-```
-
 ```{r load_data}
-load("results/benefit_all_replicates.rda")
+dat <- readRDS("results/benefit_all_replicates.rds")
 ```
 
 ```{r manipulate_data}
-dat <- out %>% 
+res <- dat %>% 
   mutate(rival = case_when(rival == FALSE ~ "Non-rival",
                            TRUE ~ "Rival"),
          amt_scenario = case_when(p_supply == 0.1 & p_demand == 0.1 ~ "LowS_LowD",
@@ -63,13 +35,154 @@ dat <- out %>%
                                    ee_thresh == 100 & es_thresh == 100 ~ "FullSS_FullSD",
                                    ee_thresh == 100 & es_thresh == 20 ~ "FullSS_ProxSD",
                                    TRUE ~ "None")) %>% 
-  select(-nrow, -ncol, -p_supply, -p_demand, -ee_thresh, -es_thresh) %>% 
-  group_by(amt_scenario, link_scenario, rival) %>% 
-  nest()
+  select(amt_scenario, link_scenario, rival, alpha, beta, gamma, f_supply, f_demand, inter, benefit)
 ```
 
+## Sensitivity to benefit function parameters
+
+First, we will take a look at the mean and variability (by standard error) of the benefit value for the different benefit function parameters. This will give us an idea of how sensitive the calculation is to values of $\alpha$, $\beta$ and $\gamma$. NB in all cases, plots and models show $\log_{10}(benefit)$ due to the large disparity between scenarios. 
+
+### Sensitivity to $\alpha$
+
+Rate at which service supply varies with area: $\alpha \geq 0$ determines whether the service supply increases less rapidly than area ($\alpha < 1$), linearly with area ($\alpha = 1$), or more rapidly than area ($\alpha > 1$).
+
+```{r alpha_sensitivity}
+alpha_dat <- res %>% group_by(amt_scenario, link_scenario, rival, alpha) %>% 
+  mutate(log_benefit = log10(benefit + 1)) %>% 
+  summarise(mean_benefit = mean(log_benefit), 
+            se_benefit = sd(log_benefit)/sqrt(n()))
+
+ggplot(alpha_dat, aes(x = as.factor(alpha), y = mean_benefit, fill = rival)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_viridis_d() + 
+  geom_errorbar(aes(ymin = mean_benefit - se_benefit, ymax = mean_benefit + se_benefit, group = rival), position = "dodge") + 
+  facet_grid(amt_scenario ~ link_scenario)
+```
+
+```{r alpha_models}
+mod_rival <- aov(mean_benefit ~ alpha * rival, data = alpha_dat)
+summary(mod_rival)
+
+mod_amt <- aov(mean_benefit ~ alpha * amt_scenario, data = alpha_dat)
+summary(mod_amt)
+
+mod_link <- aov(mean_benefit ~ alpha * link_scenario, data = alpha_dat)
+summary(mod_link)
+```
+
+Key results: 
+
+- $\alpha$ has a positive effect on mean service benefit.
+- $\alpha$ has more effect than the amount or link scenarios, but less effect than rival/non-rival. 
+- $\alpha$ are no interactions between the effect of alpha and the effect of the scenarios (at the first-order interaction level). 
+
+### Sensitivity to $\beta$
+
+$\beta$ is the amount that the service supply changes per unit area of the supply nodes that the focal node is connected to (i.e., the effect of connectivity on service supply). This can have a negative effect of connected supply ($\beta < 0$), no effect of connected supply ($\beta = 0$) or a positive effect of connected supply ($\beta > 0$). 
+
+```{r beta_sensitivity}
+beta_dat <- res %>% group_by(amt_scenario, link_scenario, rival, beta) %>% 
+  mutate(log_benefit = log10(benefit + 1)) %>%
+  summarise(mean_benefit = mean(log_benefit), 
+            se_benefit = sd(log_benefit)/sqrt(n()))
+
+ggplot(beta_dat, aes(x = as.factor(beta), y = mean_benefit, fill = rival)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_viridis_d() + 
+  geom_errorbar(aes(ymin = mean_benefit - se_benefit, ymax = mean_benefit + se_benefit, group = rival), position = "dodge") + 
+  facet_grid(amt_scenario ~ link_scenario)
+```
+
+```{r beta_models}
+mod_rival <- aov(mean_benefit ~ beta * rival, data = beta_dat)
+summary(mod_rival)
+
+mod_amt <- aov(mean_benefit ~ beta * amt_scenario, data = beta_dat)
+summary(mod_amt)
+
+mod_link <- aov(mean_benefit ~ beta * link_scenario, data = beta_dat)
+summary(mod_link)
+```
+
+Key results: 
+
+- $\beta$ has a positive effect on service benefit.
+- This effect is not present when there are no supply-supply links. 
+- This means that there is an interactive effect of $\beta$ and link scenario, but no other interactive effects. 
+- $\beta$ has a greater effect on service benefit than any of the scenarios.
+
+### Sensitivity to $\gamma$
+
+$\gamma > 0$ is the rate of exponential decline in the marginal utility with increasing supply. 
+
+```{r gamma_sensitivity}
+gamma_dat <- res %>% group_by(amt_scenario, link_scenario, rival, gamma) %>% 
+  mutate(log_benefit = log10(benefit + 1)) %>%
+  summarise(mean_benefit = mean(log_benefit), 
+            se_benefit = sd(log_benefit)/sqrt(n()))
+
+ggplot(gamma_dat, aes(x = as.factor(gamma), y = mean_benefit, fill = rival)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_viridis_d() + 
+  geom_errorbar(aes(ymin = mean_benefit - se_benefit, ymax = mean_benefit + se_benefit, group = rival), position = "dodge") + 
+  facet_grid(amt_scenario ~ link_scenario)
+```
+
+```{r gamma_models}
+mod_rival <- aov(mean_benefit ~ gamma * rival, data = gamma_dat)
+summary(mod_rival)
+
+mod_amt <- aov(mean_benefit ~ gamma * amt_scenario, data = gamma_dat)
+summary(mod_amt)
+
+mod_link <- aov(mean_benefit ~ gamma * link_scenario, data = gamma_dat)
+summary(mod_link)
+```
+
+- Effects of $\gamma$ seem a little more complicated. 
+- When it has an effect, the effect of $\gamma$ is negative. 
+- There is an interaction between $\gamma$ and rival/non-rival, but this interaction seems affected by link, and perhaps amount scenarios too. See below. 
+
+```{r}
+mod_full <- aov(mean_benefit ~ gamma * rival * link_scenario * amt_scenario, data = gamma_dat)
+summary(mod_full)
+```
+
+## Sensitivity to landscape configuration parameters
+
+In this section, for each subgroup (unique combinations of ES type based on link scenario, amount scenario, rival/non-rival and benefit function parameters), we fit a Poisson GLM with the landscape configuration parameters as covariates (f_supply, f_demand, inter). We will present the results from three combinations of the benefit function parameters (for now):
+
+- $\alpha = 1, \beta = -0.01, \gamma = 0.000001$ (linear effect of supply, negative effect of connected supply, next to no exponential decline of marginal utility)
+- $\alpha = 1, \beta = 0.01, \gamma = 0.000001$ (linear effect of supply, positive effect of connected supply, next to no exponential decline of marginal utility)
+- $\alpha = 1, \beta = 0.01, \gamma = 0.1$ (linear effect of supply, negative effect of connected supply, large exponential decline of marginal utility)
+
+We can try other values, but this was to get an idea of how results change depending on the benefit function parameter values. $\alpha$ had least impact on outcomes ($\gamma$ the most), hence we've fixed this value. 
+
+To avoid swamping the results or ending up with very complicated interaction combinations to interpret, I chose to model as subsets for now. We may wish to revisit this in a more robust full data analysis with interactions.
+
+```{r define_functions}
+# change here to change model structure
+mod_fit <- function(dat) {
+  glm(benefit ~ f_supply + f_demand + inter, data = dat, family = "poisson")
+}
+
+# change here to change variables that are scaled
+scale_cols <- function(x) {
+  scale_this <- function(y) as.vector(scale(y))
+  mutate_at(x, .vars = vars(f_supply, f_demand, inter), .funs = funs(scale_this))
+}
+
+```
+
+### Benefit function combination one
+
+$\alpha = 1, \beta = -0.01, \gamma = 0.000001$ (linear effect of supply, negative effect of connected supply, next to no exponential decline of marginal utility)
+
 ```{r fit_models, warning=FALSE}
-mod <- dat %>% 
+mod <- res %>% 
+  filter(alpha == 1, beta == -0.01, gamma == 0.000001) %>% 
+  group_by(amt_scenario, link_scenario, rival) %>% 
+  nest() %>% 
   mutate(data_scaled = map(data, scale_cols),
          mod = map(data_scaled, mod_fit),
          mod_tidy = map(mod, tidy),
@@ -83,89 +196,87 @@ coeffs <- mod %>%
   mutate_if(is.numeric, round, 3) 
 ```
 
-## Benefit distribution by scenario
-
-```{r benefit_distrib}
-distrib <- mod %>% 
-  select(amt_scenario, link_scenario, rival, data) %>% 
-  unnest()
-
-ggplot(distrib, aes(x = benefit, fill = rival)) + 
-  geom_histogram(position = "identity") + 
-  facet_grid(amt_scenario ~ link_scenario, scales = "free_x")
-
-distrib %>%
-  group_by(amt_scenario, link_scenario, rival) %>% 
-  summarise(benefit_mean = mean(benefit),
-            benefit_var = var(benefit)) %>% 
-  filter(benefit_var < 1)
-```
-
-Several scenarios have little to no variation in benefit - the models are not useful for these scenarios. NB they all have in common proximity independent supply-demand links BUT it does not include ALL proximity independent supply-demand scenarios. We may want to remove these scenarios from further analysis. 
-
-## Model fit
-
-Calculating D (1 - deviance/null.deviance). Note that D is nonsensical for the scenarios with little to no variance in benefit. 
-
-```{r mod_r2}
-mod_r2 <- mod %>%
-  select(amt_scenario, link_scenario, rival, mod_glance) %>% 
-  unnest() %>% 
-  mutate(D = 1 - (deviance / null.deviance),
-         D = ifelse(D > 1|is.infinite(D), NA, D)) %>% 
-  select(amt_scenario, link_scenario, rival, D)
-
-ggplot(mod_r2, aes(x = rival, y = D, fill = rival)) + 
-  geom_bar(stat = "identity") + 
-  facet_grid(amt_scenario ~ link_scenario) + 
-  labs(x = "", y = "D (1 - deviance/null.deviance")
-```
-
-Key results: 
-
-- As above, cannot really trust results from NoSS_FullSD due to NA D values. 
-- Model fit as calculated by D is larger for rival than non-rival in most cases. 
-
-Based on the above two set of results, I would be tempted to remove any scenario with proximity independent supply-demand links from the analysis due to the lack of variation in benefit in most cases. 
-
-## Effect of landscape configuration
-
-```{r lsconfig_plot}
+```{r lsconfig_plot, fig.width=12, fig.height = 6}
 # sensitivity to landscape configuration
 ggplot(coeffs %>% filter(term %in% c("f_supply", "f_demand", "inter")), 
        aes(x = term, y = estimate, fill = rival)) + 
   geom_bar(stat = "identity", position = "dodge") + 
+  scale_fill_viridis_d() + 
   facet_grid(amt_scenario ~ link_scenario) + 
   labs(x = "", y = "Standardised coefficient estimate")
 ```
 
-Key results:
+### Benefit function combination two
 
-- None of the landscape configuration parameters have an effect on benefit when supply-demand links are full. 
-- Landscape configuration is more important for rival services
-- Fragmentation is more important than interspersion when supply is high
-- Interspersion if more important than fragmentation when both supply and demand are low
-- Fragmentation and interspersion are equally important when supply is low and demand is high
-- These patterns hold across all service types, although the difference between rival and non-rival is greatest when supply is high and supply-supply links are proximal or non-existent. 
+$\alpha = 1, \beta = 0.01, \gamma = 0.000001$ (linear effect of supply, positive effect of connected supply, next to no exponential decline of marginal utility)
 
-# Effect of benefit function parameters 
+```{r fit_models2, warning=FALSE}
+mod <- res %>% 
+  filter(alpha == 1, beta == 0.01, gamma == 0.000001) %>% 
+  group_by(amt_scenario, link_scenario, rival) %>% 
+  nest() %>% 
+  mutate(data_scaled = map(data, scale_cols),
+         mod = map(data_scaled, mod_fit),
+         mod_tidy = map(mod, tidy),
+         mod_glance = map(mod, glance))
+```
 
-```{r bfparam_plot}
-# sensitivity to benefit parameters
-ggplot(coeffs %>% filter(term %in% c("alpha", "beta", "gamma")), 
+```{r get_coeffs2}
+coeffs <- mod %>% 
+  select(amt_scenario, link_scenario, rival, mod_tidy) %>% 
+  unnest() %>% 
+  mutate_if(is.numeric, round, 3) 
+```
+
+```{r lsconfig_plot2, fig.width=12, fig.height = 6}
+# sensitivity to landscape configuration
+ggplot(coeffs %>% filter(term %in% c("f_supply", "f_demand", "inter")), 
        aes(x = term, y = estimate, fill = rival)) + 
   geom_bar(stat = "identity", position = "dodge") + 
+  scale_fill_viridis_d() + 
   facet_grid(amt_scenario ~ link_scenario) + 
   labs(x = "", y = "Standardised coefficient estimate")
 ```
 
-Key results: 
+### Benefit function combination three
 
-- beta is not important when there are no supply-supply links
-- beta has more of an effect on benefit for rival services
-- The difference between rival/non-rival is least strong when supply is high and both types of links are full (proximity independent)
-- beta has little effect on non-rival services when supply is proximity dependent (need to think about this - there's more connected supply in proximity independent services --> higher benefit?)
+$\alpha = 1, \beta = 0.01, \gamma = 0.01$ (linear effect of supply, positive effect of connected supply, large exponential decline of marginal utility)
+
+```{r fit_models3, warning=FALSE}
+mod <- res %>% 
+  filter(alpha == 1, beta == 0.01, gamma == 0.1) %>% 
+  group_by(amt_scenario, link_scenario, rival) %>% 
+  nest() %>% 
+  mutate(data_scaled = map(data, scale_cols),
+         mod = map(data_scaled, mod_fit),
+         mod_tidy = map(mod, tidy),
+         mod_glance = map(mod, glance))
+```
+
+```{r get_coeffs3}
+coeffs <- mod %>% 
+  select(amt_scenario, link_scenario, rival, mod_tidy) %>% 
+  unnest() %>% 
+  mutate_if(is.numeric, round, 3) 
+```
+
+```{r lsconfig_plot3, fig.width=12, fig.height = 6}
+# sensitivity to landscape configuration
+ggplot(coeffs %>% filter(term %in% c("f_supply", "f_demand", "inter")), 
+       aes(x = term, y = estimate, fill = rival)) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  scale_fill_viridis_d() + 
+  facet_grid(amt_scenario ~ link_scenario) + 
+  labs(x = "", y = "Standardised coefficient estimate")
+```
 
 # Relationship between benefit and network metrics
 
-Need to work this out - will need to be the relationship between metrics once everything else is accounted for. 
+Still to do. We have calculated the following network metrics for each of the supply-supply, and supply-demand networks: 
+
+- Number of nodes
+- Network density
+- Between centralization
+- Degree centralization
+- Mean number of edges per node
+- SD number of edges per node
