@@ -49,13 +49,26 @@ In this section, for each subgroup (unique combinations of ES type based on link
 ```{r define_functions}
 # change here to change model structure
 mod_fit <- function(dat) {
-  glm(benefit ~ f_supply + f_demand + inter, data = dat, family = "poisson")
+  glm(benefit ~ f_supply * amt_scenario + f_demand * amt_scenario + inter * amt_scenario, data = dat, family = "poisson")
 }
 
 # change here to change variables that are scaled
 scale_cols <- function(x) {
   scale_this <- function(y) as.vector(scale(y))
   mutate_at(x, .vars = vars(f_supply, f_demand, inter), .funs = funs(scale_this))
+}
+
+# change here if model structure changes
+get_preds <- function(mod, pred) {
+  make_predictions(mod, pred = pred, modx = "amt_scenario")$predicted %>% 
+    mutate(covariate = pred) %>% 
+    select(benefit, pred = !!pred, modx_group, covariate)
+}
+
+get_all_preds <- function(mod) {
+  get_preds(mod, "f_supply") %>% 
+    bind_rows(get_preds(mod, "f_demand")) %>% 
+    bind_rows(get_preds(mod, "inter"))
 }
 ```
 
@@ -70,26 +83,26 @@ for(i in 1:nrow(params)) {
   gamma_val <- params[i, "gamma"]
   mod <- res %>% 
     filter(alpha == alpha_val, beta == beta_val, gamma == gamma_val) %>% 
-    group_by(amt_scenario, link_scenario, rival) %>% 
+    group_by(link_scenario, rival) %>% 
     nest() %>% 
     mutate(data_scaled = map(data, scale_cols),
            mod = map(data_scaled, mod_fit),
            mod_tidy = map(mod, tidy),
-           mod_glance = map(mod, glance))
+           mod_glance = map(mod, glance),
+           mod_preds = map(mod, get_all_preds))
   
-  coeffs <- mod %>% 
-  select(amt_scenario, link_scenario, rival, mod_tidy) %>% 
-  unnest() %>% 
-  mutate_if(is.numeric, round, 3) 
+    preds <- mod %>% select(link_scenario, rival, mod_preds) %>% 
+      unnest()
   
   p_title <- bquote(list(alpha==.(alpha_val), beta==.(beta_val), gamma==.(gamma_val)))
   
-  plots[[i]] <- ggplot(coeffs %>% filter(term %in% c("f_supply", "f_demand", "inter")), 
-                       aes(x = term, y = estimate, fill = rival)) + 
-    geom_bar(stat = "identity", position = "dodge") + 
-    scale_fill_viridis_d() + 
-    facet_grid(amt_scenario ~ link_scenario) + 
-    labs(x = "", y = "Standardised coefficient estimate", title = p_title)
+  plots[[i]] <- ggplot(preds, aes(x = pred, 
+                                  y = benefit, 
+                                  colour = modx_group, 
+                                  linetype = rival)) + 
+    geom_line() + 
+    scale_color_discrete(name = "Amount Scenario") + 
+    facet_grid(link_scenario ~ covariate, scales = "free")
 }
 ```
 
