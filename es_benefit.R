@@ -7,11 +7,11 @@ library(sLandserv)
 nrow <- ncol <- 65 # NB all landscapes will need to be of dimension 2^n + 1 due to way mid-point displacement method works
 p_supply <- p_demand <- c(0.1, 0.4)
 f_supply <- f_demand <- inter <- seq(0, 1, by = 0.25)
-ee_thresh <- 30
-es_thresh <- 30
+ee_thresh <- c(20, 30, 50)
+es_thresh <- c(20, 30, 50)
 rival <- c(TRUE, FALSE)
 alpha <- 1
-beta <- c(0, 0.01)
+beta <- c(0, 0.1)
 gamma <- c(0.000001, 0.1)
 
 # THOUGHTS ABOUT PARAMETERS 
