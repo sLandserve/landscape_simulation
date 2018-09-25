@@ -8,6 +8,7 @@ knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 library(broom)
 library(knitr)
+library(jtools)
 
 # commonality analysis for GLM
 source("ca_glm.R")
@@ -16,154 +17,45 @@ source("ca_glm.R")
 In this document, we analyse the results of the simulations generated using `es_benefit.R`. 
 
 ```{r load_data}
-dat <- readRDS("results/benefit_all_replicates.rds")
+load("results/benefit_all_replicates.rda")
 ```
 
 ```{r manipulate_data}
-res <- dat %>% 
-  mutate(rival = case_when(rival == FALSE ~ "Non-rival",
-                           TRUE ~ "Rival"),
-         amt_scenario = case_when(p_supply == 0.1 & p_demand == 0.1 ~ "LowS_LowD",
+res <- out %>% 
+  mutate(amt_scenario = case_when(p_supply == 0.1 & p_demand == 0.1 ~ "LowS_LowD",
                                   p_supply == 0.4 & p_demand == 0.1 ~ "HighS_LowD",
                                   p_supply == 0.1 & p_demand == 0.4 ~ "LowS_HighD",
                                   p_supply == 0.4 & p_demand == 0.4 ~ "HighS_HighD",
                                   TRUE ~ "None"),
-         link_scenario = case_when(is.na(ee_thresh) & es_thresh == 20 ~ "NoSS_ProxSD",
-                                   is.na(ee_thresh) & es_thresh == 100 ~ "NoSS_FullSD",
-                                   ee_thresh == 20 & es_thresh == 20 ~ "ProxSS_ProxSD",
-                                   ee_thresh == 20 & es_thresh == 100 ~ "ProxSS_FullSD",
-                                   ee_thresh == 100 & es_thresh == 100 ~ "FullSS_FullSD",
-                                   ee_thresh == 100 & es_thresh == 20 ~ "FullSS_ProxSD",
-                                   TRUE ~ "None")) %>% 
-  select(amt_scenario, link_scenario, rival, alpha, beta, gamma, f_supply, f_demand, inter, benefit)
+         service_scenario = case_when(beta == 0 & gamma == 1e-01 & rival == TRUE ~ "type1",
+                                      beta == 0 & gamma == 1e-01 & rival == FALSE ~ "type2",
+                                      beta == 0 & gamma == 1e-06 & rival == TRUE ~ "type3",
+                                      beta == 0 & gamma == 1e-06 & rival == FALSE ~ "type4",
+                                      beta == 0.01 & gamma == 1e-01 & rival == TRUE ~ "type5",
+                                      beta == 0.01 & gamma == 1e-01 & rival == FALSE ~ "type6",
+                                      beta == 0.01 & gamma == 1e-06 & rival == TRUE ~ "type7",
+                                      beta == 0.01 & gamma == 1e-06 & rival == FALSE ~ "type8")) %>% 
+  select(amt_scenario, service_scenario, f_supply, f_demand, inter, benefit)
 ```
 
-## Sensitivity to benefit function parameters
-
-First, we will take a look at the mean and variability (by standard error) of the benefit value for the different benefit function parameters. This will give us an idea of how sensitive the calculation is to values of $\alpha$, $\beta$ and $\gamma$. NB in all cases, plots and models show $\log_{10}(benefit)$ due to the large disparity between scenarios. 
-
-### Sensitivity to $\alpha$
-
-Rate at which service supply varies with area: $\alpha \geq 0$ determines whether the service supply increases less rapidly than area ($\alpha < 1$), linearly with area ($\alpha = 1$), or more rapidly than area ($\alpha > 1$).
-
-```{r alpha_sensitivity}
-alpha_dat <- res %>% group_by(amt_scenario, link_scenario, rival, alpha) %>% 
-  mutate(log_benefit = log10(benefit + 1)) %>% 
-  summarise(mean_benefit = mean(log_benefit), 
-            se_benefit = sd(log_benefit)/sqrt(n()))
-
-ggplot(alpha_dat, aes(x = as.factor(alpha), y = mean_benefit, fill = rival)) + 
-  geom_bar(stat = "identity", position = "dodge") +
-  scale_fill_viridis_d() + 
-  geom_errorbar(aes(ymin = mean_benefit - se_benefit, ymax = mean_benefit + se_benefit, group = rival), position = "dodge") + 
-  facet_grid(amt_scenario ~ link_scenario)
-```
-
-```{r alpha_models}
-mod_rival <- aov(mean_benefit ~ alpha * rival, data = alpha_dat)
-summary(mod_rival)
-
-mod_amt <- aov(mean_benefit ~ alpha * amt_scenario, data = alpha_dat)
-summary(mod_amt)
-
-mod_link <- aov(mean_benefit ~ alpha * link_scenario, data = alpha_dat)
-summary(mod_link)
-```
-
-Key results: 
-
-- $\alpha$ has a positive effect on mean service benefit.
-- $\alpha$ has more effect than the amount or link scenarios, but less effect than rival/non-rival. 
-- $\alpha$ are no interactions between the effect of alpha and the effect of the scenarios (at the first-order interaction level). 
-
-### Sensitivity to $\beta$
-
-$\beta$ is the amount that the service supply changes per unit area of the supply nodes that the focal node is connected to (i.e., the effect of connectivity on service supply). This can have a negative effect of connected supply ($\beta < 0$), no effect of connected supply ($\beta = 0$) or a positive effect of connected supply ($\beta > 0$). 
-
-```{r beta_sensitivity}
-beta_dat <- res %>% group_by(amt_scenario, link_scenario, rival, beta) %>% 
-  mutate(log_benefit = log10(benefit + 1)) %>%
-  summarise(mean_benefit = mean(log_benefit), 
-            se_benefit = sd(log_benefit)/sqrt(n()))
-
-ggplot(beta_dat, aes(x = as.factor(beta), y = mean_benefit, fill = rival)) + 
-  geom_bar(stat = "identity", position = "dodge") +
-  scale_fill_viridis_d() + 
-  geom_errorbar(aes(ymin = mean_benefit - se_benefit, ymax = mean_benefit + se_benefit, group = rival), position = "dodge") + 
-  facet_grid(amt_scenario ~ link_scenario)
-```
-
-```{r beta_models}
-mod_rival <- aov(mean_benefit ~ beta * rival, data = beta_dat)
-summary(mod_rival)
-
-mod_amt <- aov(mean_benefit ~ beta * amt_scenario, data = beta_dat)
-summary(mod_amt)
-
-mod_link <- aov(mean_benefit ~ beta * link_scenario, data = beta_dat)
-summary(mod_link)
-```
-
-Key results: 
-
-- $\beta$ has a positive effect on service benefit.
-- This effect is not present when there are no supply-supply links. 
-- This means that there is an interactive effect of $\beta$ and link scenario, but no other interactive effects. 
-- $\beta$ has a greater effect on service benefit than any of the scenarios.
-
-### Sensitivity to $\gamma$
-
-$\gamma > 0$ is the rate of exponential decline in the marginal utility with increasing supply. 
-
-```{r gamma_sensitivity}
-gamma_dat <- res %>% group_by(amt_scenario, link_scenario, rival, gamma) %>% 
-  mutate(log_benefit = log10(benefit + 1)) %>%
-  summarise(mean_benefit = mean(log_benefit), 
-            se_benefit = sd(log_benefit)/sqrt(n()))
-
-ggplot(gamma_dat, aes(x = as.factor(gamma), y = mean_benefit, fill = rival)) + 
-  geom_bar(stat = "identity", position = "dodge") +
-  scale_fill_viridis_d() + 
-  geom_errorbar(aes(ymin = mean_benefit - se_benefit, ymax = mean_benefit + se_benefit, group = rival), position = "dodge") + 
-  facet_grid(amt_scenario ~ link_scenario)
-```
-
-```{r gamma_models}
-mod_rival <- aov(mean_benefit ~ gamma * rival, data = gamma_dat)
-summary(mod_rival)
-
-mod_amt <- aov(mean_benefit ~ gamma * amt_scenario, data = gamma_dat)
-summary(mod_amt)
-
-mod_link <- aov(mean_benefit ~ gamma * link_scenario, data = gamma_dat)
-summary(mod_link)
-```
-
-- Effects of $\gamma$ seem a little more complicated. 
-- When it has an effect, the effect of $\gamma$ is negative. 
-- There is an interaction between $\gamma$ and rival/non-rival, but this interaction seems affected by link, and perhaps amount scenarios too. See below. 
+## Typologies
 
 ```{r}
-mod_full <- aov(mean_benefit ~ gamma * rival * link_scenario * amt_scenario, data = gamma_dat)
-summary(mod_full)
+knitr::include_graphics('figs/typology.png')
 ```
+
+In the below plots, the service types are numbered left-to-right, top-to-bottom (e.g. type one is plantation forestry, type 5 is wind pollinated crops/hunting etc.). 
 
 ## Sensitivity to landscape configuration parameters
 
-In this section, for each subgroup (unique combinations of ES type based on link scenario, amount scenario, rival/non-rival and benefit function parameters), we fit a Poisson GLM with the landscape configuration parameters as covariates (f_supply, f_demand, inter). We will present the results from three combinations of the benefit function parameters (for now):
+For each subgroup (unique combinations of ES type based on service scenario), we fit a Poisson GLM with the landscape parameters as covariates (f_supply, f_demand, inter, amt_scenario). We also include the interaction between each configuration parameter (f_supply, f_demand, inter) and the amount scenario to get an idea of whether the relationship between landscape configuration and ES benefit changes with landscape composition. 
 
-- $\alpha = 1, \beta = -0.01, \gamma = 0.000001$ (linear effect of supply, negative effect of connected supply, next to no exponential decline of marginal utility)
-- $\alpha = 1, \beta = 0.01, \gamma = 0.000001$ (linear effect of supply, positive effect of connected supply, next to no exponential decline of marginal utility)
-- $\alpha = 1, \beta = 0.01, \gamma = 0.1$ (linear effect of supply, negative effect of connected supply, large exponential decline of marginal utility)
-
-We can try other values, but this was to get an idea of how results change depending on the benefit function parameter values. $\alpha$ had least impact on outcomes ($\gamma$ the most), hence we've fixed this value. 
-
-To avoid swamping the results or ending up with very complicated interaction combinations to interpret, I chose to model as subsets for now. We may wish to revisit this in a more robust full data analysis with interactions.
+The plots below are partial effect plots for the landscape configuration variables at each level of amount scenario. 
 
 ```{r define_functions}
 # change here to change model structure
 mod_fit <- function(dat) {
-  glm(benefit ~ f_supply + f_demand + inter, data = dat, family = "poisson")
+  glm(benefit ~ f_supply * amt_scenario + f_demand * amt_scenario + inter * amt_scenario, data = dat, family = "poisson")
 }
 
 # change here to change variables that are scaled
@@ -172,111 +64,54 @@ scale_cols <- function(x) {
   mutate_at(x, .vars = vars(f_supply, f_demand, inter), .funs = funs(scale_this))
 }
 
+# change here if model structure changes
+get_preds <- function(mod, pred) {
+  make_predictions(mod, pred = pred, modx = "amt_scenario")$predicted %>% 
+    mutate(covariate = pred) %>% 
+    select(benefit, pred = !!pred, modx_group, covariate)
+}
+
+get_all_preds <- function(mod) {
+  get_preds(mod, "f_supply") %>% 
+    bind_rows(get_preds(mod, "f_demand")) %>% 
+    bind_rows(get_preds(mod, "inter"))
+}
 ```
 
-### Benefit function combination one
-
-$\alpha = 1, \beta = -0.01, \gamma = 0.000001$ (linear effect of supply, negative effect of connected supply, next to no exponential decline of marginal utility)
-
-```{r fit_models, warning=FALSE}
+```{r, warning = FALSE, message = FALSE, fig.width=10, fig.height = 15}
 mod <- res %>% 
-  filter(alpha == 1, beta == -0.01, gamma == 0.000001) %>% 
-  group_by(amt_scenario, link_scenario, rival) %>% 
+  group_by(service_scenario) %>% 
   nest() %>% 
   mutate(data_scaled = map(data, scale_cols),
          mod = map(data_scaled, mod_fit),
          mod_tidy = map(mod, tidy),
-         mod_glance = map(mod, glance))
+         mod_glance = map(mod, glance),
+         mod_preds = map(mod, get_all_preds))
+
+preds <- mod %>% select(service_scenario, mod_preds) %>% 
+  unnest()
+
+
+
+ggplot(preds, aes(x = pred, y = benefit, colour = covariate)) + 
+  geom_line() + 
+  scale_color_discrete(name = "Covariate") + 
+  facet_grid(service_scenario ~ modx_group, scales = "free")
 ```
 
-```{r get_coeffs}
-coeffs <- mod %>% 
-  select(amt_scenario, link_scenario, rival, mod_tidy) %>% 
-  unnest() %>% 
-  mutate_if(is.numeric, round, 3) 
+NB The relationship between ES benefit and both fragmentation parameters is pretty similar, this is why f_demand lines are not visible. This is something worth discussing (e.g. is this to do with the way we have written the benefit function, or is it an actual result). 
+
+Below are a couple of other ways to cut the visualisation
+
+```{r, fig.width=10, fig.height = 15}
+ggplot(preds, aes(x = pred, y = benefit)) + 
+  geom_line() + 
+  facet_grid(service_scenario ~ modx_group + covariate, scales = "free")
 ```
 
-```{r lsconfig_plot, fig.width=12, fig.height = 6}
-# sensitivity to landscape configuration
-ggplot(coeffs %>% filter(term %in% c("f_supply", "f_demand", "inter")), 
-       aes(x = term, y = estimate, fill = rival)) + 
-  geom_bar(stat = "identity", position = "dodge") + 
-  scale_fill_viridis_d() + 
-  facet_grid(amt_scenario ~ link_scenario) + 
-  labs(x = "", y = "Standardised coefficient estimate")
+```{r, fig.width=10, fig.height = 15}
+ggplot(preds, aes(x = pred, y = benefit, colour = modx_group)) + 
+  geom_line() + 
+  scale_color_discrete(name = "Amount Scenario") + 
+  facet_grid(service_scenario ~ covariate, scales = "free")
 ```
-
-### Benefit function combination two
-
-$\alpha = 1, \beta = 0.01, \gamma = 0.000001$ (linear effect of supply, positive effect of connected supply, next to no exponential decline of marginal utility)
-
-```{r fit_models2, warning=FALSE}
-mod <- res %>% 
-  filter(alpha == 1, beta == 0.01, gamma == 0.000001) %>% 
-  group_by(amt_scenario, link_scenario, rival) %>% 
-  nest() %>% 
-  mutate(data_scaled = map(data, scale_cols),
-         mod = map(data_scaled, mod_fit),
-         mod_tidy = map(mod, tidy),
-         mod_glance = map(mod, glance))
-```
-
-```{r get_coeffs2}
-coeffs <- mod %>% 
-  select(amt_scenario, link_scenario, rival, mod_tidy) %>% 
-  unnest() %>% 
-  mutate_if(is.numeric, round, 3) 
-```
-
-```{r lsconfig_plot2, fig.width=12, fig.height = 6}
-# sensitivity to landscape configuration
-ggplot(coeffs %>% filter(term %in% c("f_supply", "f_demand", "inter")), 
-       aes(x = term, y = estimate, fill = rival)) + 
-  geom_bar(stat = "identity", position = "dodge") + 
-  scale_fill_viridis_d() + 
-  facet_grid(amt_scenario ~ link_scenario) + 
-  labs(x = "", y = "Standardised coefficient estimate")
-```
-
-### Benefit function combination three
-
-$\alpha = 1, \beta = 0.01, \gamma = 0.01$ (linear effect of supply, positive effect of connected supply, large exponential decline of marginal utility)
-
-```{r fit_models3, warning=FALSE}
-mod <- res %>% 
-  filter(alpha == 1, beta == 0.01, gamma == 0.1) %>% 
-  group_by(amt_scenario, link_scenario, rival) %>% 
-  nest() %>% 
-  mutate(data_scaled = map(data, scale_cols),
-         mod = map(data_scaled, mod_fit),
-         mod_tidy = map(mod, tidy),
-         mod_glance = map(mod, glance))
-```
-
-```{r get_coeffs3}
-coeffs <- mod %>% 
-  select(amt_scenario, link_scenario, rival, mod_tidy) %>% 
-  unnest() %>% 
-  mutate_if(is.numeric, round, 3) 
-```
-
-```{r lsconfig_plot3, fig.width=12, fig.height = 6}
-# sensitivity to landscape configuration
-ggplot(coeffs %>% filter(term %in% c("f_supply", "f_demand", "inter")), 
-       aes(x = term, y = estimate, fill = rival)) + 
-  geom_bar(stat = "identity", position = "dodge") + 
-  scale_fill_viridis_d() + 
-  facet_grid(amt_scenario ~ link_scenario) + 
-  labs(x = "", y = "Standardised coefficient estimate")
-```
-
-# Relationship between benefit and network metrics
-
-Still to do. We have calculated the following network metrics for each of the supply-supply, and supply-demand networks: 
-
-- Number of nodes
-- Network density
-- Between centralization
-- Degree centralization
-- Mean number of edges per node
-- SD number of edges per node
