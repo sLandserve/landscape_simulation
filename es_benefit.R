@@ -11,8 +11,8 @@ ee_thresh <- c(20, 30, 50)
 es_thresh <- c(20, 30, 50)
 rival <- c(TRUE, FALSE)
 alpha <- 1
-beta <- c(0, 0.1)
-gamma <- c(0.000001, 0.1)
+beta <- c(0, 0.5)
+gamma <- c(0.0001, 0.1)
 
 # THOUGHTS ABOUT PARAMETERS 
 # beta - strong effect on the outcome. We either need to really
