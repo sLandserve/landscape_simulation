@@ -22,6 +22,7 @@ load("results/benefit_all_replicates.rda")
 
 ```{r manipulate_data}
 res <- out %>% 
+  filter(ee_thresh == 20, es_thresh == 20) %>% 
   mutate(amt_scenario = case_when(p_supply == 0.1 & p_demand == 0.1 ~ "LowS_LowD",
                                   p_supply == 0.4 & p_demand == 0.1 ~ "HighS_LowD",
                                   p_supply == 0.1 & p_demand == 0.4 ~ "LowS_HighD",
@@ -31,10 +32,10 @@ res <- out %>%
                                       beta == 0 & gamma == 1e-01 & rival == FALSE ~ "type2",
                                       beta == 0 & gamma == 1e-06 & rival == TRUE ~ "type3",
                                       beta == 0 & gamma == 1e-06 & rival == FALSE ~ "type4",
-                                      beta == 0.01 & gamma == 1e-01 & rival == TRUE ~ "type5",
-                                      beta == 0.01 & gamma == 1e-01 & rival == FALSE ~ "type6",
-                                      beta == 0.01 & gamma == 1e-06 & rival == TRUE ~ "type7",
-                                      beta == 0.01 & gamma == 1e-06 & rival == FALSE ~ "type8")) %>% 
+                                      beta == 0.1 & gamma == 1e-01 & rival == TRUE ~ "type5",
+                                      beta == 0.1 & gamma == 1e-01 & rival == FALSE ~ "type6",
+                                      beta == 0.1 & gamma == 1e-06 & rival == TRUE ~ "type7",
+                                      beta == 0.1 & gamma == 1e-06 & rival == FALSE ~ "type8")) %>% 
   select(amt_scenario, service_scenario, f_supply, f_demand, inter, benefit)
 ```
 
