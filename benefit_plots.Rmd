@@ -28,14 +28,14 @@ res <- out %>%
                                   p_supply == 0.1 & p_demand == 0.4 ~ "LowS_HighD",
                                   p_supply == 0.4 & p_demand == 0.4 ~ "HighS_HighD",
                                   TRUE ~ "None"),
-         service_scenario = case_when(beta == 0 & gamma == 1e-01 & rival == TRUE ~ "type1",
-                                      beta == 0 & gamma == 1e-01 & rival == FALSE ~ "type2",
-                                      beta == 0 & gamma == 1e-06 & rival == TRUE ~ "type3",
-                                      beta == 0 & gamma == 1e-06 & rival == FALSE ~ "type4",
-                                      beta == 0.1 & gamma == 1e-01 & rival == TRUE ~ "type5",
-                                      beta == 0.1 & gamma == 1e-01 & rival == FALSE ~ "type6",
-                                      beta == 0.1 & gamma == 1e-06 & rival == TRUE ~ "type7",
-                                      beta == 0.1 & gamma == 1e-06 & rival == FALSE ~ "type8")) %>% 
+         service_scenario = case_when(beta == 0 & gamma == 0.1 & rival == TRUE ~ "type1",
+                                      beta == 0 & gamma == 0.1 & rival == FALSE ~ "type2",
+                                      beta == 0 & gamma == 0.0001 & rival == TRUE ~ "type3",
+                                      beta == 0 & gamma == 0.0001 & rival == FALSE ~ "type4",
+                                      beta == 0.5 & gamma == 0.1 & rival == TRUE ~ "type5",
+                                      beta == 0.5 & gamma == 0.1 & rival == FALSE ~ "type6",
+                                      beta == 0.5 & gamma == 0.0001 & rival == TRUE ~ "type7",
+                                      beta == 0.5 & gamma == 0.0001 & rival == FALSE ~ "type8")) %>% 
   select(amt_scenario, service_scenario, f_supply, f_demand, inter, benefit)
 ```
 
