@@ -22,21 +22,12 @@ load("results/benefit_all_replicates.rda")
 
 ```{r manipulate_data}
 res <- out %>% 
-  filter(ee_thresh == 20, es_thresh == 20) %>% 
   mutate(amt_scenario = case_when(p_supply == 0.1 & p_demand == 0.1 ~ "LowS_LowD",
                                   p_supply == 0.4 & p_demand == 0.1 ~ "HighS_LowD",
                                   p_supply == 0.1 & p_demand == 0.4 ~ "LowS_HighD",
                                   p_supply == 0.4 & p_demand == 0.4 ~ "HighS_HighD",
-                                  TRUE ~ "None"),
-         service_scenario = case_when(beta == 0 & gamma == 0.1 & rival == TRUE ~ "type1",
-                                      beta == 0 & gamma == 0.1 & rival == FALSE ~ "type2",
-                                      beta == 0 & gamma == 0.0001 & rival == TRUE ~ "type3",
-                                      beta == 0 & gamma == 0.0001 & rival == FALSE ~ "type4",
-                                      beta == 0.5 & gamma == 0.1 & rival == TRUE ~ "type5",
-                                      beta == 0.5 & gamma == 0.1 & rival == FALSE ~ "type6",
-                                      beta == 0.5 & gamma == 0.0001 & rival == TRUE ~ "type7",
-                                      beta == 0.5 & gamma == 0.0001 & rival == FALSE ~ "type8")) %>% 
-  select(amt_scenario, service_scenario, f_supply, f_demand, inter, benefit)
+                                  TRUE ~ "None")) %>% 
+  select(amt_scenario, alpha, beta, gamma, rival, ee_thresh, es_thresh, f_supply, f_demand, inter, benefit)
 ```
 
 ## Typologies
@@ -79,9 +70,9 @@ get_all_preds <- function(mod) {
 }
 ```
 
-```{r, warning = FALSE, message = FALSE, fig.width=10, fig.height = 15}
+```{r, warning = FALSE, message = FALSE, fig.width=10, fig.height = 35}
 mod <- res %>% 
-  group_by(service_scenario) %>% 
+  group_by(alpha, beta, gamma, rival, ee_thresh, es_thresh) %>% 
   nest() %>% 
   mutate(data_scaled = map(data, scale_cols),
          mod = map(data_scaled, mod_fit),
@@ -89,7 +80,7 @@ mod <- res %>%
          mod_glance = map(mod, glance),
          mod_preds = map(mod, get_all_preds))
 
-preds <- mod %>% select(service_scenario, mod_preds) %>% 
+preds <- mod %>% select(alpha, beta, gamma, rival, ee_thresh, es_thresh, mod_preds) %>% 
   unnest()
 
 
@@ -97,7 +88,7 @@ preds <- mod %>% select(service_scenario, mod_preds) %>%
 ggplot(preds, aes(x = pred, y = benefit, colour = covariate)) + 
   geom_line() + 
   scale_color_discrete(name = "Covariate") + 
-  facet_grid(service_scenario ~ modx_group, scales = "free")
+  facet_grid(alpha + beta + gamma + rival + ee_thresh + es_thresh ~ modx_group, scales = "free")
 ```
 
 NB The relationship between ES benefit and both fragmentation parameters is pretty similar, this is why f_demand lines are not visible. This is something worth discussing (e.g. is this to do with the way we have written the benefit function, or is it an actual result). 
