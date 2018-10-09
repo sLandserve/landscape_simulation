@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #PBS -N es_benefit
-#PBS -l walltime=00:120:00
+#PBS -l walltime=00:360:00
 #PBS -t 1-100
 
 cd $PBS_O_WORKDIR
