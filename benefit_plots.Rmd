@@ -14,6 +14,8 @@ library(jtools)
 source("ca_glm.R")
 ```
 
+## Introduction
+
 In this document, we analyse the results of the simulations generated using `es_benefit.R`.
 
 ```{r load_data}
@@ -37,7 +39,7 @@ Then we develop hypotheses for how these effects vary across five dimensions of 
 
 First we define functions to fit the models and extract coefficient estimates. The model we fit here is a Poisson glm with a "quasipoisson" family.
 
-```{r define_functions}
+```{r define_functions1, echo = TRUE}
 # change here to change model structure
 mod_fit <- function(dat) {
   glm(benefit ~ f_supply * inter + f_demand * inter + f_supply * f_demand + I(f_supply ^ 2) + I(f_demand ^ 2) + I(inter ^ 2), data = dat, family = "quasipoisson")
@@ -57,7 +59,7 @@ get_coefs <- function(mod) {
 
 Next we fit the models to each amt_scenario, ee_thresh, es_thresh, beta, gamma, and rival combinations
 
-```{r model_fits}
+```{r model_fits, echo = TRUE}
 mod <- res %>%
   group_by(amt_scenario, ee_thresh, es_thresh, beta, gamma, rival) %>%
   nest() %>%
@@ -91,7 +93,7 @@ In this case we observe the following:
 
 (6) The effect of interspersion is non-linear with maximum effects at intermediate values of interspersion (i.e., the main effect is positive and the quadratic effect is negative)        
 
-```{r LowSLowD3030, warning = FALSE, message = FALSE, fig.width=10, fig.height = 35}
+```{r LowSLowD3030, warning = FALSE, message = FALSE, fig.width = 10, fig.height = 10}
 #ee_thresh = 30, es_thresh = 30, amt_scenario = LowS_LowD
 effects1 <- effects[effects$ee_thresh==30 & effects$es_thresh==30 & effects$amt_scenario=="LowS_LowD" & effects$covariates!="(Intercept)", ]
 effects1$covariates <- factor(effects1$covariates, levels = effects1$covariates[1:9])
@@ -107,7 +109,7 @@ In this case we observe similar patterns to the LowS-LowD case except for the fo
 
 (2) When the effect of supply-supply connection are positive and the ES is non-substitutable then the effect of interspersion is negative. Presumably this reflects the rapid decline in marginal values as you connect supply and demand patches (see comments above).
 
-```{r HighSLowD3030, warning = FALSE, message = FALSE, fig.width=10, fig.height = 35}
+```{r HighSLowD3030, warning = FALSE, message = FALSE, fig.width = 10, fig.height = 10}
 #ee_thresh = 30, es_thresh = 30, amt_scenario = HighS_LowD
 effects1 <- effects[effects$ee_thresh==30 & effects$es_thresh==30 & effects$amt_scenario=="HighS_LowD" & effects$covariates!="(Intercept)", ]
 effects1$covariates <- factor(effects1$covariates, levels = effects1$covariates[1:9])
@@ -123,7 +125,7 @@ In this case we observe similar patterns to the LowS-LowD case except for the fo
 
 (2) Interspersion tends not to have effects any bigger then suppy and demand fragmentation.
 
-```{r LowSHighD3030, warning = FALSE, message = FALSE, fig.width=10, fig.height = 35}
+```{r LowSHighD3030, warning = FALSE, message = FALSE, fig.width = 10, fig.height = 10}
 #ee_thresh = 30, es_thresh = 30, amt_scenario = LowS_HighD
 effects1 <- effects[effects$ee_thresh==30 & effects$es_thresh==30 & effects$amt_scenario=="LowS_HighD" & effects$covariates!="(Intercept)", ]
 effects1$covariates <- factor(effects1$covariates, levels = effects1$covariates[1:9])
@@ -149,7 +151,7 @@ For each subgroup (unique combinations of ES type based on service scenario), we
 
 The plots below are partial effect plots for the landscape configuration variables at each level of amount scenario.
 
-```{r define_functions}
+```{r define_functions2, echo = TRUE}
 # change here to change model structure
 mod_fit <- function(dat) {
   glm(benefit ~ f_supply * amt_scenario + f_demand * amt_scenario + inter * amt_scenario, data = dat, family = "poisson")
@@ -196,15 +198,15 @@ ggplot(preds, aes(x = pred, y = benefit, colour = covariate)) +
 
 NB The relationship between ES benefit and both fragmentation parameters is pretty similar, this is why f_demand lines are not visible. This is something worth discussing (e.g. is this to do with the way we have written the benefit function, or is it an actual result).
 
-Below are a couple of other ways to cut the visualisation
+Below are a couple of other ways to cut the visualisation [NOTE: SEEMS TO CURRENTLY BE AN ISSUE WITH THIS CODE - NOT PRESENTLY EVALUATED]
 
-```{r, fig.width=10, fig.height = 15}
+```{r, fig.width=10, fig.height = 15, eval = FALSE, echo = TRUE}
 ggplot(preds, aes(x = pred, y = benefit)) +
   geom_line() +
   facet_grid(service_scenario ~ modx_group + covariate, scales = "free")
 ```
 
-```{r, fig.width=10, fig.height = 15}
+```{r, fig.width=10, fig.height = 15, eval = FALSE, echo = TRUE}
 ggplot(preds, aes(x = pred, y = benefit, colour = modx_group)) +
   geom_line() +
   scale_color_discrete(name = "Amount Scenario") +
