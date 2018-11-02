@@ -6,24 +6,42 @@ Benefit Plots
 In this document, we analyse the results of the simulations generated
 using `es_benefit.R`.
 
+``` r
+load("results/benefit_all_replicates.rda")
+```
+
+``` r
+res <- out %>%
+  mutate(amt_scenario = case_when(p_supply == 0.1 & p_demand == 0.1 ~ "S = 10% D = 10%",
+                                  p_supply == 0.4 & p_demand == 0.1 ~ "S = 40% D = 10%",
+                                  p_supply == 0.1 & p_demand == 0.4 ~ "S = 10% D = 40%",
+                                  p_supply == 0.4 & p_demand == 0.4 ~ "S = 40% D = 40%",
+                                  TRUE ~ "None")) %>%
+  select(amt_scenario, alpha, beta, gamma, rival, ee_thresh, es_thresh, f_supply, f_demand, inter, benefit, num_supply, ee_density, ee_centr_degree, ee_edge_per_node_mean, num_demand, es_density, es_centr_degree, es_edge_per_node_mean)
+```
+
 ## Hypotheses development
 
-Here, based on simulated results, we develop hypotheses about the effect
-of landscape structure across four dimensions: (1) the amount of supply,
-(2) the amount of demand, (3) fragmentation of supply, (4) fragmentation
-of demand, and (5) supply/demand interspersion.
+Based on simulated results, we quantify the effect of landscape
+structure across four dimensions: (1) the amount of supply, (2) the
+amount of demand, (3) fragmentation of supply, (4) fragmentation of
+demand, and (5) supply/demand interspersion.
 
-Then we develop hypotheses for how these effects vary across five
-dimensions of ecosystem service characteristics: (1) whether
-supply-supply connections are spatially constrained or unconstrained,
-(2) whether supply-demand connection are spatially constrained or
-unconstrained, (3) whether supply-supply connectivity has a positive,
-negative or no effect on ecosystem service supply, (4) ecosystem service
-substitutability, and (5) ecosystem service rivalness.
+Then we develop hypotheses for how these effects vary across six
+dimensions of ecosystem service characteristics: (1) the scaling effect
+of whether supply-supply connections are spatially constrained or
+unconstrained relative to the landscape size, (2) the scaling effect of
+whether supply-demand connections are spatially constrained or
+unconstrained relative to the landscape size, (3) whether ecosystem
+service supply scales with patch size linearly or according to a
+species-area relationship, (4) whether supply-supply connections have a
+positive, negative or no effect on ecosystem service supply, (5) whether
+the ecosystem service is substitutable or not, and (6) whether the
+ecosystem service is rival or not.
 
-First we define functions to fit the models and extract coefficient
-estimates. The model we fit here is a Poisson glm with a “quasipoisson”
-family.
+First we define functions to fit statistical models to the simulated
+benefit data and extract coefficient estimates. The model we define here
+is a Poisson glm with a “quasipoisson” family.
 
 ``` r
 # change here to change model structure
@@ -31,7 +49,7 @@ mod_fit <- function(dat) {
   glm(benefit ~ f_supply * inter + f_demand * inter + f_supply * f_demand + I(f_supply ^ 2) + I(f_demand ^ 2) + I(inter ^ 2), data = dat, family = "quasipoisson")
 }
 
-# change here to change variables that are scaled
+# change here to change the variables that are scaled
 scale_cols <- function(x) {
   scale_this <- function(y) as.vector(scale(y))
   mutate_at(x, .vars = vars(f_supply, f_demand, inter), .funs = funs(scale_this))
@@ -39,12 +57,18 @@ scale_cols <- function(x) {
 
 # change covariates and arrange() here if model structure changes for getting coefficients and standard errors
 get_coefs <- function(mod) {
-  data.frame(covariates = c("(Intercept)", "Frag Supply", "Inter", "Frag Demand", "Frag Supply ^ 2", "Frag Demand ^ 2", "Inter ^ 2", "Frag Supply * Inter", "Frag Demand * Inter", "Frag Supply * Frag Demand"), estimates = summary(mod)$coefficients[,1], serrors = summary(mod)$coefficients[,2]) %>% as_tibble() %>% arrange(c(1 ,2 , 6, 4, 3, 5, 7, 9, 10, 8))  
+  data.frame(covariates = c("(Intercept)", "Frag supply", "Inter", "Frag demand", "Frag supply ^ 2", "Frag demand ^ 2", "Inter ^ 2", "Frag supply * Inter", "Frag demand * Inter", "Frag supply * Frag demand"), estimates = summary(mod)$coefficients[,1], serrors = summary(mod)$coefficients[,2]) %>% as_tibble() %>% arrange(c(1 ,2 , 6, 4, 3, 5, 7, 9, 10, 8))  
 }
 ```
 
-Next we fit the models to each amt\_scenario, ee\_thresh, es\_thresh,
-beta, gamma, and rival combinations
+Next we fit the models to each combination scenario of amount of supply
+and demand (amt\_scenario), spatial scale of supply-supply links
+(ee\_thresh), spatial scale of supply-demand links (es\_thresh), the
+effect of supply-supply connections on ecosystem service supply (beta),
+substitutability of the service (gamma), and rivalness (rival). Note for
+now we assume that ecosystem service supply scales with patch size
+according to a species-area relationship - the next iteration will
+consider the consequences of a linear relationship.
 
 ``` r
 mod <- res %>%
@@ -60,99 +84,53 @@ effects <- mod %>% select(ee_thresh, es_thresh, amt_scenario, beta, gamma, rival
 unnest()         
 ```
 
-Next we plot the coefficients (effect sizes) for different combinations
-of values for: (1) the effect of connectivity on ecosystem service
-supply (beta), (2) ecosystem service substitutability (gamma), and (3)
-rivalness (rival).
+To visualise the results we generate plots the coefficients (effect
+sizes) for different combinations of the scaling of supply-supply and
+supply-demand links, how ecosystem service supply scales with patch
+area, and the effect of supply-supply connections on ecosystem service
+supply. We first do this for a substitutable and non-rival ecosystem
+service and then explore how the patterns change for a rival or a
+non-substitutable ecosystem service.
 
-We do this for each amount scenario (i.e., amounts of supply and demand)
-and each spatial scale of supply-supply and supply-demand connections
-(i.e., whether connections are spatially constrined or
-not)
+### Substitutable and non-rival ecosystem service
 
-### LowS-LowD, scale of SS connections = 30, scale of SD connections = 30
+Below we show, for a substitutable and non-rival ecosystem service, the
+effect of landscape structure for different spatial scaling of
+supply-supply (ee\_thresh) and supply-demand links (es\_thresh) and the
+effect of supply-supply connections on ecosystem service supply (beta).
+The units of ee\_thresh and es\_thresh are in cells, and the size of the
+landscape is 65 x 65 cells (approximately 92 cells from corner to
+corner). Note here we currently ignore the different ways in which patch
+size may influence ecosystem service supply pending further
+simulations.
 
-In this case we observe the following:
+![](benefit_plots_files/figure-gfm/plot_gamma0.1_rivalFALSE-1.png)<!-- -->
 
-1)  The effect of supply fragmentation, fragmentation of demand and
-    interspersion are always positive. This seems to arise because
-    fragmentation tends to connect patches up (as measured by the edge
-    density) and interspersion tends to connect supply and demand
-    patches.
+In the case we observe the following as potential hypotheses:
 
-2)  When the ES is substitutable (gamma = 0.1) then the effect of supply
-    or demand fragmentation is higher when the effect of supply-supply
-    connections are positive (beta = 0.05) than when the effect of
-    supply-supply connections are negative (beta = -0.05). However, when
-    ES is non-substitutable (gamma = 0.5) these effects are the other
-    way around (i.e., the effect of supply or demand fragmentation is
-    higher when the effect of supply-supply connections are negative
-    (beta = -0.05) than when the effect of supply-supply connections are
-    positive (beta = 0.05)). This may be explained by the following:
-    When the ES is substitutable marginal values do not change very much
-    so effects closely reflect changes in supply - greater fragmentation
-    leads to more supply-supply connections (as measured by edge
-    density) and this maximises the supply of the ES when the effects of
-    supply-supply connections is positive. When the ES is not
-    substitutable, there is a cost to fragmenting supply as it also
-    leads to connecting supply and demand patches and reduces the
-    marginal value of the service rapidly.
+1)  In general, the effect of fragmentation of supply or demand is
+    positive, except when supply-supply connectivity has a negative
+    effect on ecosystem service supply and the scale of supply-supply
+    threshold that defines links is large (i.e., 60).
 
-3)  The effect of interspersion is greater than the effect of
-    fragmentation, except when the ES is non-substitutable (gamma = 0.5)
-    or when supply-supply connections have a positive effect on supply
-    (beta = 0.05). This could be explained by two processes: (a) when
-    the ES is non-substitutable there is some cost to connecting demand
-    to supply patches as it reduces the marginal value of the service
-    rapidly, (b) when supply-supply connections have a positive effect
-    on supply then interspersion tends to reduce the number of
-    supply-supply connections by spreading out supply patches.
+In the first plot below (scale of supply-supply links = 30 and amount of
+supply and demand = 10%) you can see that fragmentation tends to
+increase the density of network connections between supply and supply
+nodes, but also increases centralisation of the supply-supply network.
+This means that as the landscape is fragmented, despite and increase in
+the density of supply-supply links they are shared among only a few
+nodes (i.e., the network essentially becomes more fragmented). However,
+in the second plot below you can see that, when the scale of
+supply-supply links = 60, centralisation decreases with fragmentation,
+so the increase in the density of supply-supply links is shared among
+nodes (i.e., the network essentially becomes less fragmented). This may
+explain why, when the effects of supply-supply connections on ecosystem
+service supply is negative, you get a positive effect of fragmentation
+when the scale of supply-supply links is small (30), but is negative
+when the scale of supply-supply links is large (60).
 
-4)  There is a strong negative interaction between supply and demand
-    fragmentation (i.e., the effect of supply fragmentation declines as
-    demand fragmentation increases and vice versa). This interaction
-    effect seems to be smallest when the effect of supply-supply links
-    is negative.
-
-5)  In general being rival tends to reduce the effect of landscape
-    structure variables on benefits (although the effects seems to be a
-    bit variable and not large).
-
-6)  The effect of interspersion is non-linear with maximum effects at
-    intermediate values of interspersion (i.e., the main effect is
-    positive and the quadratic effect is
-negative)
-
-![](benefit_plots_files/figure-gfm/LowSLowD3030-1.png)<!-- -->
-
-### HighS-LowD, scale of SS connections = 30, scale of SD connections = 30
-
-In this case we observe similar patterns to the LowS-LowD case except
-for the following:
-
-1)  In general the effects of landscape structure are smaller than in
-    the LowS-LowD case.
-
-2)  When the effect of supply-supply connection are positive and the ES
-    is non-substitutable then the effect of interspersion is negative.
-    Presumably this reflects the rapid decline in marginal values as you
-    connect supply and demand patches (see comments
-above).
-
-![](benefit_plots_files/figure-gfm/HighSLowD3030-1.png)<!-- -->
-
-### LowS-HighD, scale of SS connections = 30, scale of SD connections = 30
-
-In this case we observe similar patterns to the LowS-LowD case except
-for the following:
-
-1)  In general the effects of landscape structure are smaller than in
-    the LowS-LowD case.
-
-2)  Interspersion tends not to have effects any bigger then suppy and
-    demand fragmentation.
-
-![](benefit_plots_files/figure-gfm/LowSHighD3030-1.png)<!-- -->
+![](benefit_plots_files/figure-gfm/plot_correlation1-1.png)<!-- -->
+![](benefit_plots_files/figure-gfm/plot_correlation2-1.png)<!-- -->
 
 # Laura’s previous stuff
 
