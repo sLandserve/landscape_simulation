@@ -16,17 +16,19 @@ gamma <- c(0, 0.1, 0.5) # included 0 here to represent a flat demand curve (i.e.
 
 strt <- Sys.time()
 
-plan(multiprocess)
+plan(multisession)
 
 # 2. create the landscape parameters ----
 benefit <- crossing(nrow, ncol, p_supply,p_demand,f_supply,f_demand,inter) %>%
+  slice(1:5) %>% 
   # 3. simulate the landscapes ----
   mutate(ls_sim = future_pmap(., ls_create),
        # and get the bits we'll use later out
        ls_supply = future_map(ls_sim, "ls_supply"),
        ls_demand = future_map(ls_sim, "ls_demand"),
        params = future_map(ls_sim, "params")) %>% 
-
+  select(-ls_sim) %>%
+  
   # 4. create the network threshold parameters ----
   crossing(ee_thresh, es_thresh) %>%
 
@@ -42,6 +44,7 @@ benefit <- crossing(nrow, ncol, p_supply,p_demand,f_supply,f_demand,inter) %>%
          params = future_map(es_network, "params"),
          ee_network = future_map(ee_network, "network"),
          es_network = future_map(es_network, "network")) %>% 
+  select(-ls_supply, -ls_demand) %>% 
   
   # 6. create benefit parameters ----
   crossing(rival, alpha, beta, gamma) %>%
