@@ -17,6 +17,13 @@ gamma <- c(0, 0.1, 0.5) # included 0 here to represent a flat demand curve (i.e.
 
 # 2. Function for one set of landscape parameters
 es_benefit <- function(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter, params) {
+  ee_thresh <- params$ee_thresh
+  es_thresh <- params$es_thresh
+  rival <- params$rival
+  alpha <- params$alpha
+  beta <- params$beta
+  gamma <- params$gamma
+  
   lscape <- ls_create(nrow = nrow, 
                       ncol = ncol, 
                       p_supply = p_supply, 
@@ -64,7 +71,7 @@ es_benefit <- function(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter
 
 strt <- Sys.time()
 
-#plan(multisession)
+plan(multisession)
 
 # 2. create the landscape parameters ----
 benefit <- crossing(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter, ee_thresh, es_thresh, rival, alpha, beta, gamma) %>% 
