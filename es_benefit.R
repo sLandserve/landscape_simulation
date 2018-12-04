@@ -17,12 +17,8 @@ gamma <- c(0, 0.1, 0.5) # included 0 here to represent a flat demand curve (i.e.
 
 # 2. Function for one set of landscape parameters
 es_benefit <- function(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter, params) {
-  ee_thresh <- params$ee_thresh
-  es_thresh <- params$es_thresh
-  rival <- params$rival
-  alpha <- params$alpha
-  beta <- params$beta
-  gamma <- params$gamma
+  ee_thresh <- unique(params$ee_thresh)
+  es_thresh <- unique(params$es_thresh)
   
   lscape <- ls_create(nrow = nrow, 
                       ncol = ncol, 
@@ -32,12 +28,12 @@ es_benefit <- function(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter
                       f_demand = f_demand, 
                       inter = inter)
   
-  ee_net <- future_map(ee_thresh, 
+  ee_net <- future_map(ee_thresh %>% unique, 
                        create_ee_network, 
                        ls_supply = lscape$ls_supply, 
                        supply_area = "patch_area")
                         
-  es_net <- future_map(es_thresh, 
+  es_net <- future_map(es_thresh %>% unique, 
                        create_es_network, 
                        ls_supply = lscape$ls_supply, 
                        ls_demand = lscape$ls_demand, 
@@ -55,8 +51,11 @@ es_benefit <- function(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter
     out <- bind_cols(out, ee_out, es_out)
     return(out)
   }
-  benefit <- crossing(ee_net_id = 1:length(ee_net), es_net_id = 1:length(es_net), rival, alpha, beta, gamma) %>% 
-    mutate(benefit = future_pmap(.l = list(ee_net_id = ee_net_id,
+  
+  benefit <- params %>% 
+    mutate(ee_net_id = ee_thresh %>% as.factor %>% as.numeric,
+           es_net_id = es_thresh %>% as.factor %>% as.numeric,
+           benefit = future_pmap(.l = list(ee_net_id = ee_net_id,
                                            es_net_id = es_net_id,
                                            rival = rival, 
                                            alpha = alpha, 
@@ -66,21 +65,19 @@ es_benefit <- function(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter
     unnest() %>% 
     mutate(p_supply = p_supply, p_demand = p_demand, f_supply = f_supply, f_demand = f_demand, inter = inter)
   
-  return(benefit)
+  save(benefit, file = tempfile(tmpdir = "results/benefit_replicates", fileext = ".Rda"))
+  return(NULL)
 }
 
 strt <- Sys.time()
 
-plan(multisession)
+#plan(multisession)
 
 # 2. create the landscape parameters ----
-benefit <- crossing(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter, ee_thresh, es_thresh, rival, alpha, beta, gamma) %>% 
+out <- crossing(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter, ee_thresh, es_thresh, rival, alpha, beta, gamma) %>% 
   group_by(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter) %>% 
   nest(.key = params) %>% 
-  future_pmap_dfr(es_benefit)
+  slice(1) %>% 
+  future_pmap(es_benefit)
   
- 
-# 7. output for analysis ----
-save(benefit, file = tempfile(tmpdir = "results/benefit_replicates", fileext = ".Rda"))
-
 print(paste0("Replicate complete: ", Sys.time() - strt))
