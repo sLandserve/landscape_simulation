@@ -65,8 +65,7 @@ es_benefit <- function(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter
     unnest() %>% 
     mutate(p_supply = p_supply, p_demand = p_demand, f_supply = f_supply, f_demand = f_demand, inter = inter)
   
-  save(benefit, file = tempfile(tmpdir = "results/benefit_replicates", fileext = ".Rda"))
-  return(NULL)
+  return(benefit)
 }
 
 strt <- Sys.time()
@@ -77,6 +76,8 @@ plan(multiprocess)
 out <- crossing(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter, ee_thresh, es_thresh, rival, alpha, beta, gamma) %>% 
   group_by(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter) %>% 
   nest(.key = params) %>% 
-  future_pmap(es_benefit)
+  future_pmap_dfr(es_benefit)
   
+write_csv(out, tempfile(tmpdir = "results/benefit_replicates", fileext = ".csv"))
+
 print(paste0("Replicate complete: ", Sys.time() - strt))
