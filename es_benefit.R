@@ -71,7 +71,7 @@ es_benefit <- function(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter
 
 strt <- Sys.time()
 
-#plan(multisession)
+plan(multiprocess)
 
 # 2. create the landscape parameters ----
 out <- crossing(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter, ee_thresh, es_thresh, rival, alpha, beta, gamma) %>% 
