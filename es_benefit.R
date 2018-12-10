@@ -8,11 +8,11 @@ library(sf)
 nrow <- ncol <- 65 # NB all landscapes will need to be of dimension 2^n + 1 due to way mid-point displacement method works
 p_supply <- p_demand <- c(0.1, 0.2, 0.3, 0.4)
 f_supply <- f_demand <- inter <- seq(0, 1, by = 0.2)
-ee_thresh <- c(9, 23, 46, 69, 92) # chosen to represent 10%, 25%, 75%, 100% of the diagonal length of the landscape
-es_thresh <- c(9, 23, 46, 69, 92) # chosen to represent 10%, 25%, 75%, 100% of the diagonal length of the landscape
+ee_thresh <- c(23, 46, 69) # chosen to represent 10%, 25%, 75%, 100% of the diagonal length of the landscape
+es_thresh <- c(23, 46, 69) # chosen to represent 10%, 25%, 75%, 100% of the diagonal length of the landscape
 rival <- c(TRUE, FALSE)
 alpha <- c(0.3, 1.0)
-beta <- c(-0.1, -0.05, -0.01, 0, 0.01, 0.05, 0.1)
+beta <- c(-0.1, -0.01, 0, 0.01, 0.1)
 gamma <- c(0, 0.1, 0.5) # included 0 here to represent a flat demand curve (i.e., perfectly substitutable)
 
 # 2. Function for one set of landscape parameters
@@ -76,8 +76,10 @@ plan(multiprocess)
 out <- crossing(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter, ee_thresh, es_thresh, rival, alpha, beta, gamma) %>% 
   group_by(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter) %>% 
   nest(.key = params) %>% 
-  future_pmap_dfr(es_benefit)
+  slice(1) %>% 
+  future_pmap_dfr(es_benefit) %>% 
+  select(-rival1, -alpha1, -beta1, -gamma1, -lambda, -phi, -ee_thresh1, -es_thresh1)
   
-write_csv(out, tempfile(tmpdir = "results/benefit_replicates", fileext = ".csv"))
+save(out, file = tempfile(tmpdir = "results/benefit_replicates", fileext = ".rda"))
 
 print(paste0("Replicate complete: ", Sys.time() - strt))
