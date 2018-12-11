@@ -76,7 +76,6 @@ plan(multiprocess)
 out <- crossing(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter, ee_thresh, es_thresh, rival, alpha, beta, gamma) %>% 
   group_by(nrow, ncol, p_supply, p_demand, f_supply, f_demand, inter) %>% 
   nest(.key = params) %>% 
-  slice(1) %>% 
   future_pmap_dfr(es_benefit) %>% 
   select(-rival1, -alpha1, -beta1, -gamma1, -lambda, -phi, -ee_thresh1, -es_thresh1)
   
