@@ -10,17 +10,29 @@ library(broom)
 library(knitr)
 library(jtools)
 library(psych)
-
-# commonality analysis for GLM
-source("ca_glm.R")
 ```
 
 ## Introduction
 
 In this document, we analyse the results of the simulations generated using `es_benefit.R`.
 
-```{r load_data, echo = TRUE}
-load("results/benefit_all_replicates.rda")
+Compile results - set eval = FALSE if results already compiled
+```{r compile_data, echo = TRUE, eval = FALSE}
+f = list.files("results/benefit_replicates", full.names = TRUE)
+
+read_rda = function(x) {
+	load(x)
+	return(out)
+}
+
+out = map_dfr(f, read_rda)
+
+save(out, file = "results/all_replicates.rda")
+```
+
+Load results - set eval = FALSE if results compiled above
+```{r load_data, echo = TRUE, eval = TRUE}
+load("results/all_replicates.rda")
 ```
 
 ```{r manipulate_data, echo = TRUE}
@@ -30,20 +42,28 @@ res <- out %>%
                                   p_supply == 0.1 & p_demand == 0.4 ~ "S = 10% D = 40%",
                                   p_supply == 0.4 & p_demand == 0.4 ~ "S = 40% D = 40%",
                                   TRUE ~ "None")) %>%
-  select(amt_scenario, alpha, beta, gamma, rival, ee_thresh, es_thresh, f_supply, f_demand, inter, benefit, num_supply, ee_density, ee_centr_degree, ee_edge_per_node_mean, num_demand, es_density, es_centr_degree, es_edge_per_node_mean)
+  select(amt_scenario, alpha, beta, gamma, rival, ee_thresh, es_thresh, f_supply, f_demand, inter, benefit, supply, num_supply, ee_density, ee_centr_degree, ee_edge_per_node_mean, num_demand, es_density, es_centr_degree, es_edge_per_node_mean)
+
+#tidy up memory
+rm(out)
+gc()
 ```
 ## Hypotheses development
 
-Based on simulated results, we quantify the effect of landscape structure across four dimensions: (1) the amount of supply, (2) the amount of demand, (3) fragmentation of supply, (4) fragmentation of demand, and (5) supply/demand interspersion.
+Based on simulated results, we quantify the effect of landscape structure across three dimensions: (1) fragmentation of supply, (2) fragmentation of demand, and (3) supply/demand interspersion.
 
-Then we develop hypotheses for how these effects vary across six dimensions of ecosystem service characteristics: (1) the scaling effect of whether supply-supply connections are spatially constrained or unconstrained relative to the landscape size, (2) the scaling effect of whether supply-demand connections are spatially constrained or unconstrained relative to the landscape size, (3) whether ecosystem service supply scales with patch size linearly or according to a species-area relationship, (4) whether supply-supply connections have a positive, negative or no effect on ecosystem service supply, (5) whether the ecosystem service is substitutable or not, and (6) whether the ecosystem service is rival or not.
+Then we develop hypotheses for how these effects vary across six dimensions of ecosystem service characteristics: (1) whether supply-supply connections are spatially constrained or unconstrained relative to the landscape size, (2) the scaling effect of whether supply-demand connections are spatially constrained or unconstrained relative to the landscape size, (3) whether ecosystem service supply scales with patch size linearly or according to a species-area relationship, (4) whether supply-supply connections have a positive, negative or no effect on ecosystem service supply, (5) whether the ecosystem service is substitutable or not, and (6) whether the ecosystem service is rival or not.
 
 First we define functions to fit statistical models to the simulated benefit data and extract coefficient estimates. The model we define here is a Poisson glm with a "quasipoisson" family.
 
 ```{r define_functions1, echo = TRUE}
 # change here to change model structure
-mod_fit <- function(dat) {
+mod_fit_benefit <- function(dat) {
   glm(benefit ~ f_supply * inter + f_demand * inter + f_supply * f_demand + I(f_supply ^ 2) + I(f_demand ^ 2) + I(inter ^ 2), data = dat, family = "quasipoisson")
+}
+
+mod_fit_supply <- function(dat) {
+  glm(supply ~ f_supply * inter + f_demand * inter + f_supply * f_demand + I(f_supply ^ 2) + I(f_demand ^ 2) + I(inter ^ 2), data = dat, family = "quasipoisson")
 }
 
 # change here to change the variables that are scaled
@@ -58,19 +78,35 @@ get_coefs <- function(mod) {
 }
 ```
 
-Next we fit the models to each combination scenario of amount of supply and demand (amt_scenario), spatial scale of supply-supply links (ee_thresh), spatial scale of supply-demand links (es_thresh), the effect of supply-supply connections on ecosystem service supply (beta), substitutability of the service (gamma), and rivalness (rival). Note for now we assume that ecosystem service supply scales with patch size according to a species-area relationship - the next iteration will consider the consequences of a linear relationship.
+Next, for benefit and supply, we fit the models to each combination scenario of amount of supply and demand (amt_scenario), spatial scale of supply-supply links (ee_thresh), spatial scale of supply-demand links (es_thresh), effect of patch area on ecosystem service supply (alpha), effect of supply-supply connections on ecosystem service supply (beta), non-substitutability of the service (gamma), and whether the service is rival or not (rival).
 
 ```{r model_fits, echo = TRUE}
-mod <- res %>%
-  group_by(amt_scenario, ee_thresh, es_thresh, beta, gamma, rival) %>%
-  nest() %>%
-  mutate(data_scaled = map(data, scale_cols),
-         mod = map(data_scaled, mod_fit),
+group_res <- res %>%
+  group_by(amt_scenario, ee_thresh, es_thresh, alpha, beta, gamma, rival) %>%
+  nest()
+
+#tidy up memory
+rm(res)
+gc()
+
+mod_benefit <-	group_res[1:100,] %>%
+	mutate(data_scaled = map(data, scale_cols),
+         mod = map(data_scaled, mod_fit_benefit),
          mod_tidy = map(mod, tidy),
          mod_glance = map(mod, glance),
          mod_coefs = map(mod, get_coefs))
 
-effects <- mod %>% select(ee_thresh, es_thresh, amt_scenario, beta, gamma, rival, mod_coefs) %>%
+effects_benefit <- mod_benefit %>% select(ee_thresh, es_thresh, amt_scenario, alpha, beta, gamma, rival, mod_coefs) %>%
+unnest()
+
+mod_supply <- group_res[1:100,] %>%
+  mutate(data_scaled = map(data, scale_cols),
+         mod = map(data_scaled, mod_fit_supply),
+         mod_tidy = map(mod, tidy),
+         mod_glance = map(mod, glance),
+         mod_coefs = map(mod, get_coefs))
+
+effects_supply <- mod_supply %>% select(ee_thresh, es_thresh, amt_scenario, alpha, beta, gamma, rival, mod_coefs) %>%
 unnest()         
 ```  
 
