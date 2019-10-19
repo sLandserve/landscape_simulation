@@ -14,75 +14,85 @@ using `es_benefit.R`.
 #set eval = FALSE if results already compiled
 f = list.files("results/benefit_replicates", full.names = TRUE)
 
+#function to read simulation results and manipulate data
+#this includes removing replicates with on only one supply or demand node (centrality not defined for these cases)
+#and no connections between supply and demand nodes (ecosystem service benefit is always zero in this case)
+#we also remove replicates with ee_thresh and es_thresh values of 69 or 83 as these result in path model convergence
+#issues due to little variation in network density (in these cases network density is always high)
 read_rda = function(x) {
     load(x)
-    return(out)
+    res <- out %>%
+                 filter(ee_thresh != 69 & ee_thresh != 83 & es_thresh != 69 & es_thresh != 83) %>%
+                 mutate_at(.vars = c("ee_thresh", "es_thresh", "gamma"), .funs = function(x) (((x - min(x)) / (max(x) - min(x))))) %>%
+                 mutate_at(.vars = c("beta"), .funs = function(x) (((x - min(x)) / (max(x) - min(x))) - 0.5)) %>%
+                 filter((num_supply > 1) & (num_demand > 1) & !is.na(es_density)) %>%
+                 mutate(es_centr_degree_supply = es_centr_degree_supply * (num_supply - 1) * (num_demand - 1) /
+                 ((num_supply - 1) * num_demand), es_centr_degree_demand = es_centr_degree_demand * (num_supply - 1) * (num_demand - 1) /
+                 (num_supply * (num_demand - 1))) %>%
+                 mutate(ee_thresh = as.factor(ee_thresh),
+                 es_thresh = as.factor(es_thresh),                                                              
+                 patch_size_effect = relevel(as.factor(alpha), ref = "1"),
+                 ee_connectivity_effect = as.factor(beta),           
+                 rivalness = relevel(as.factor(rival), ref = "FALSE"),
+                 substitutability = as.factor(gamma),
+                 size_supply = p_supply / num_supply,
+                 size_demand = p_demand / num_demand) %>%
+                 select(benefit, p_supply, p_demand, f_supply, f_demand, num_supply, ee_density, ee_centr_degree, num_demand, es_density,
+                 es_centr_degree_supply, es_centr_degree_demand, ee_thresh, es_thresh, patch_size_effect, ee_connectivity_effect,
+                 rivalness, substitutability)
+  rm(out)
+    invisible(gc(verbose = FALSE))
+    return(res)
 }
-
-out = map_dfr(f, read_rda)
-
+out <- map_dfr(f[1:20], read_rda) #note: need to find solution to dealing with large file sizes - currently analysis only for 20 replicates
 save(out, file = "results/all_replicates.rda")
 ```
 
-### Load simulation results
+### Load simulation results if necessary
 
 ``` r
-#set eval = TRUE if results not compiled above
+#set eval = TRUE if need to load compiled data
 load("results/all_replicates.rda")
 ```
 
-### Manipulate simulation data
+### Group data
+
+Here we group the simulated data based on the ecosystem service
+characteristics so that the data is ready to fit the path models
 
 ``` r
-res <- out %>%
-mutate(ee_thresh = as.factor(ee_thresh),
-             es_thresh = as.factor(es_thresh),                                                              
-             patch_size_effect = as.factor(alpha),
-             ee_connectivity_effect = as.factor(beta),           
-             rivalness = as.factor(rival),
-             substitutability = as.factor(gamma),
-             size_supply = p_supply / num_supply,
-             size_demand = p_demand / num_demand) %>%
-select(benefit, supply, p_supply, p_demand, f_supply, f_demand, num_supply, num_demand, size_supply, size_demand, ee_density, es_density, ee_centr_degree, es_centr_degree, ee_thresh, es_thresh, patch_size_effect, ee_connectivity_effect, rivalness, substitutability)
-
-#tidy up memory
+#set eval = FALSE if results already compiled
+group_res <- out %>%
+             group_by(ee_thresh, es_thresh, patch_size_effect, ee_connectivity_effect, rivalness, substitutability) %>%
+             nest()
 rm(out)
 invisible(gc(verbose = FALSE))
+save(group_res, file = "results/all_replicates_grouped.rda")
+```
 
-#group simulations by the factors
-group_res <- res %>%
-  group_by(ee_thresh, es_thresh, patch_size_effect, ee_connectivity_effect, rivalness, substitutability) %>%
-  nest()
+### Load grouped simulation results if necessary
 
-#tidy up memory
-rm(res)
-invisible(gc(verbose = FALSE))
+``` r
+#set eval = TRUE if need to load grouped compiled data
+load("results/all_replicates_grouped.rda")
 ```
 
 ## Model fitting
 
 Here we first develop path models based on the conceptualisation of the
-relationships between the amount of supply and demand and network
-metrics represented in the figure below.
+relationships between the amount and fragmentation of supply and demand
+and network metrics represented in the figure below.
 
 ![](figs/path_model.png)<!-- -->
 
-Then we develop a linear model to explain the total effects (direct and
-indirect) of each variable in the figure above as a function of: (1) the
-spatial scale of supply-supply links, (2) the spatial scale of the
-supply-demand links,(3) whether the effect of patch size on supply is
-linear, or follows a species-area relationship (SAR), (4) the size and
-direction of the effect of supply-supply links, (5) whether the
-ecosystem service is rival or non-rival, and (6) the degree of
-non-substitutability of the ecosystem service.
-
-### Define function to fit the path models
-
-``` r
-fit_sem <- function(dat, model) {
-    sem(model, data = dat)
-}
-```
+Then we develop a linear model to explain the total effects (direct plus
+indirect) of each landscape and network metric variables on benefit, as
+a function of: (1) the spatial scale of supply-supply links, (2) the
+spatial scale of the supply-demand links,(3) whether the effect of patch
+size on supply is linear, or follows a species-area relationship (SAR),
+(4) the size and direction of the effect of supply-supply links, (5)
+whether the ecosystem service is rival or non-rival, and (6) the
+substitutability of the ecosystem service.
 
 ### Define path model structure
 
@@ -90,38 +100,84 @@ fit_sem <- function(dat, model) {
 #change here to change model structure
 path_mod <- '
                         #regressions
-                        benefit ~  alpha1 * p_supply + alpha2 * p_demand +  + alpha3 * p_demand:p_supply + alpha4 * num_supply + alpha5 * ee_density + alpha6 *  ee_centr_degree + alpha7 * num_demand + alpha8 * es_density + alpha9 * es_centr_degree
-                        ee_density ~ beta1 * num_supply
-                        ee_centr_degree ~ beta2 * ee_density
-                        es_density ~ gamma1 * num_supply + gamma2 * num_demand + gamma3 * num_supply:num_demand
-                        es_centr_degree ~ gamma4 * es_density
+                        benefit ~  alpha1 * p_supply + alpha2 * p_demand + alpha3 * p_demand:p_supply + alpha4 * f_supply + alpha5 * f_demand + alpha6 * f_demand:f_supply +    beta1 * num_supply + beta2 * ee_density + beta3 * ee_centr_degree + beta4 * num_demand + beta5 * es_density + beta6 * es_centr_degree_supply + beta7 * es_centr_degree_demand
+                        num_supply ~ gamma8 * f_supply
+                        ee_density ~ gamma10 * p_supply + gamma9 * f_supply + eta1 * num_supply
+                        ee_centr_degree ~ eta2 * ee_density
+                        num_demand ~ gamma5 * f_demand
+                        es_density ~ gamma1 * p_supply + gamma2 * p_demand + gamma3 * p_demand:p_supply + gamma7 * f_supply + gamma4 * f_demand  + gamma6 * f_demand:f_supply + eta3 * num_supply + eta4 * num_demand + eta5 * num_supply:num_demand
+                        es_centr_degree_supply ~ eta6 * es_density
+                        es_centr_degree_demand ~ eta7 * es_density                      
 
-                        #direct and indirect effects
-                        total_s := alpha1
-                        total_d := alpha2
-                        total_sd := alpha3
-                        total_ns := alpha4 + beta1 * alpha5 + beta1 * beta2 * alpha6
-                        total_nd := alpha7 + gamma2 * alpha8 + gamma2 * gamma4 * alpha9
-                        total_nsnd := gamma3 * alpha8 + gamma3 * gamma4 * alpha9
-                        total_ssden := alpha5 + beta2 * alpha6
-                        total_sdden := alpha8 + gamma4 * alpha9
-                        total_sscen := alpha6
-                        total_sdcen := alpha9                               
+                        #covariances
+                        es_centr_degree_supply ~~ es_centr_degree_demand
+
+                        #calculate total effects
+                        total_sscen := beta3
+                        total_sdcens := beta6
+                        total_sdcend := beta7
+                        total_ssden := beta2 + eta2 * total_sscen
+                        total_sdden := beta5 + eta6 * total_sdcens + eta7 * total_sdcend
+                        total_ns := beta1 + eta1 * total_ssden + eta3 * total_sdden
+                        total_nd := beta4 + eta4 * total_sdden
+                        total_nsnd := eta5 * total_sdden
+                        total_fs := alpha4 + gamma8 * total_ns + gamma9 * total_ssden + gamma7 * total_sdden
+                        total_fd := alpha5 + gamma5 * total_nd + gamma4 * total_sdden
+                        total_fsd := alpha6 + gamma6 * total_sdden
+                        total_ps := alpha1 + gamma10 * total_ssden + gamma1 * total_sdden
+                        total_pd := alpha2 + gamma2 * total_sdden
+                        total_psd := alpha3 + gamma3 * total_sdden
+                        fs_ns := gamma8
+                        fd_nd := gamma5
+                        fs_ssden := gamma9
+                        fs_sdden := gamma7
+                        fd_sdden := gamma4
+                        fsd_ssden := gamma6
+                        ps_ssden := gamma10
+                        ps_sdden := gamma1
+                        pd_sdden := gamma1
+                        psd_ssden := gamma3                                 
 '
 ```
 
-### Define function to return total effects of each variable
+### Define the function to scale the data for the path model
+
+``` r
+#change type of scaling here if necessary - currently scales benefit, num_supply, num_demand to the 0 - 1 range
+#all other variables are naturally scaled in the 0 - 1 range
+#scaling the benefit to the 0 - 1 range makes it a measure of natures contribution to people expressed as a proportion
+#of the maximum achievable for each ecosystem service
+scale_vars <- function(data) {
+        data %>% mutate_at(.vars = c("benefit", "num_supply", "num_demand"), .funs = function(x) (x - min(x)) / (max(x) - min(x)))
+}
+```
+
+### Define the function to fit the path models
+
+``` r
+fit_sem <- function(dat, model) {
+  try(sem(model, data = dat), silent = TRUE) #to catch and ignore models that fail with an error or warning
+}
+```
+
+### Define the function to return the total effects of each landscape/network metric
 
 ``` r
 #change here for different model structures
 get_estimates <- function(model) {
-    as_tibble(filter(parameterEstimates(model),label=="total_s" | label=="total_d" | label=="total_sd" | label=="total_ns" | label=="total_nd"
-                    | label=="total_nsnd" | label=="total_ssden" | label=="total_sdden" | label=="total_sscen" | label=="total_sdcen")) %>%
-                        select(label, est, se, ci.lower, ci.upper)
+    #select parameter estimates needed                  
+    out <- as_tibble(parameterEstimates(model)) %>% filter(label == "total_ps" | label == "total_pd" | label == "total_psd" |
+                            label == "total_fs" | label=="total_fd" | label == "total_fsd" | label == "total_ns" | label == "total_nd"  |
+                            label == "total_nsnd" | label == "total_ssden" | label == "total_sdden" | label == "total_sscen" |
+                            label == "total_sdcens" | label == "total_sdcend" | label == "fs_ns" | label == "fd_nd" |
+                            label == "fs_ssden" | label == "fs_sdden" | label == "fd_sdden" | label == "fsd_sdden" |
+                            label == "ps_ssden" | label == "ps_sdden" | label == "pd_sdden" | label == "psd_sdden") %>%
+                            select(label, est, se, ci.lower, ci.upper)
+    return(out)
 }
 ```
 
-### Define function to fit linear model to explain effects in the path models
+### Define the function to fit the linear models to explain the effects estimated from the path models
 
 ``` r
 #change here for different model structures
@@ -133,149 +189,132 @@ fit_lm <- function(data) {
 ### Run the analysis
 
 ``` r
-#check for collinearity
-cor(select(group_res$data[[1]],c(num_supply, num_demand, p_supply, p_demand, ee_density, ee_centr_degree, es_density,  es_centr_degree)),               use="complete.obs", method=c("spear"))
+#check for correlations
+cor(select(group_res$data[[1]],c(num_supply, num_demand, p_supply, p_demand, ee_density, ee_centr_degree, es_density,  es_centr_degree_supply,
+                    es_centr_degree_demand)), use="complete.obs", method=c("spear"))
 ```
 
-    ##                    num_supply    num_demand      p_supply      p_demand
-    ## num_supply       1.000000e+00 -0.0001795755 -9.658875e-06 -0.0001144209
-    ## num_demand      -1.795755e-04  1.0000000000  2.179318e-04  0.0171418619
-    ## p_supply        -9.658875e-06  0.0002179318  1.000000e+00 -0.0004365245
-    ## p_demand        -1.144209e-04  0.0171418619 -4.365245e-04  1.0000000000
-    ## ee_density      -8.751618e-01  0.0009898949 -1.207862e-02 -0.0014638712
-    ## ee_centr_degree  5.943258e-01 -0.0016460911  3.455926e-01 -0.0003605729
-    ## es_density      -2.575584e-01 -0.1689191792  1.974572e-02  0.0298159706
-    ## es_centr_degree  8.805499e-02 -0.0172739487  1.531275e-01  0.1672774970
-    ##                    ee_density ee_centr_degree  es_density es_centr_degree
-    ## num_supply      -0.8751617941    0.5943257800 -0.25755843      0.08805499
-    ## num_demand       0.0009898949   -0.0016460911 -0.16891918     -0.01727395
-    ## p_supply        -0.0120786155    0.3455925611  0.01974572      0.15312748
-    ## p_demand        -0.0014638712   -0.0003605729  0.02981597      0.16727750
-    ## ee_density       1.0000000000   -0.5533132154  0.24973318     -0.04103495
-    ## ee_centr_degree -0.5533132154    1.0000000000 -0.10968939      0.09448518
-    ## es_density       0.2497331828   -0.1096893854  1.00000000     -0.68706496
-    ## es_centr_degree -0.0410349545    0.0944851819 -0.68706496      1.00000000
+    ##                          num_supply    num_demand     p_supply
+    ## num_supply              1.000000000  0.0021870018 -0.003233271
+    ## num_demand              0.002187002  1.0000000000 -0.003426850
+    ## p_supply               -0.003233271 -0.0034268495  1.000000000
+    ## p_demand               -0.002806833 -0.0033782229 -0.001550376
+    ## ee_density             -0.965296270 -0.0024854807  0.037612635
+    ## ee_centr_degree         0.493419183 -0.0005491816  0.307499524
+    ## es_density             -0.516590950 -0.5168929612  0.178576880
+    ## es_centr_degree_supply -0.001418058 -0.0510389411  0.561122958
+    ## es_centr_degree_demand -0.045522628  0.0040213873 -0.100037361
+    ##                             p_demand   ee_density ee_centr_degree
+    ## num_supply             -0.0028068328 -0.965296270    0.4934191825
+    ## num_demand             -0.0033782229 -0.002485481   -0.0005491816
+    ## p_supply               -0.0015503764  0.037612635    0.3074995243
+    ## p_demand                1.0000000000  0.002050280    0.0005576573
+    ## ee_density              0.0020502799  1.000000000   -0.4018256138
+    ## ee_centr_degree         0.0005576573 -0.401825614    1.0000000000
+    ## es_density              0.1755709708  0.504898731   -0.2861870783
+    ## es_centr_degree_supply -0.1004572821  0.020716739    0.2528502824
+    ## es_centr_degree_demand  0.5584410358  0.085837508   -0.0024996085
+    ##                        es_density es_centr_degree_supply
+    ## num_supply             -0.5165910           -0.001418058
+    ## num_demand             -0.5168930           -0.051038941
+    ## p_supply                0.1785769            0.561122958
+    ## p_demand                0.1755710           -0.100457282
+    ## ee_density              0.5048987            0.020716739
+    ## ee_centr_degree        -0.2861871            0.252850282
+    ## es_density              1.0000000            0.198518171
+    ## es_centr_degree_supply  0.1985182            1.000000000
+    ## es_centr_degree_demand  0.1888120           -0.211496149
+    ##                        es_centr_degree_demand
+    ## num_supply                       -0.045522628
+    ## num_demand                        0.004021387
+    ## p_supply                         -0.100037361
+    ## p_demand                          0.558441036
+    ## ee_density                        0.085837508
+    ## ee_centr_degree                  -0.002499609
+    ## es_density                        0.188812048
+    ## es_centr_degree_supply           -0.211496149
+    ## es_centr_degree_demand            1.000000000
 
 ``` r
 #fit the path models
-path_models <-  group_res %>%   mutate(data_scaled = map(data, scale),
-             mod = map(.x = data_scaled, .f = fit_sem, model = path_mod),
-                     effects = map(mod, get_estimates))
-
-#re-arrange data
-path_data <- path_models %>% select(-data, -data_scaled, -mod) %>% unnest() %>% group_by(label) %>%
-                                    mutate(ee_thresh = scale(as.numeric(as.character(ee_thresh))), es_thresh = scale(as.numeric(as.character(es_thresh))),
-                                    ee_connectivity_effect = scale(as.numeric(as.character(ee_connectivity_effect))),
-                                    substitutability = scale(as.numeric(as.character(substitutability)))) %>% nest()
+options(warn = 2) #so as to catch warnings as well as errors
+path_models <-  group_res %>%
+                                    mutate(data_scaled = map(data, scale_vars), mod = map(.x = data_scaled, .f = fit_sem, model = path_mod), class = map(mod, class)) %>%
+                                    filter(!(class == "try-error")) %>% mutate(effects = map(mod, get_estimates)) %>% select(-data, -data_scaled, -mod, -class) %>% unnest(cols = effects) %>% ungroup() %>%
+                                    mutate(ee_thresh = as.numeric(as.character(ee_thresh)), es_thresh = as.numeric(as.character(es_thresh)),
+                                  ee_connectivity_effect = as.numeric(as.character(ee_connectivity_effect)),
+                                  substitutability = as.numeric(as.character(substitutability))) %>%                     
+                              group_by(label) %>% nest() %>% ungroup()
 
 #fit linear models to explain path coefficients
-linear_models <- path_data %>% mutate(lm_est = map(.x = data, .f = fit_lm)) %>% mutate(coefs = map(.x = lm_est, .f = coef))                  
+linear_models <- path_models %>% mutate(lm_est = map(.x = data, .f = fit_lm)) %>% mutate(coefs = map(.x = lm_est, .f = coef))   %>% ungroup()                
 ```
 
-## Plot results
+## Plot the results
 
-In all the plots below, the baseline service is one where: (1) the scale
-of supply and demand links is around half the landscape size, (2) patch
-size effects on supply follow a species area relationship, (3)
-supply-supply connectivity effect is zero, (4) the service is non-rival,
-and (5) the service is moderately substitutable. The effect of
-deviations from this baseline are shown.
+In all the plots below we explore how each of the variables that
+characterise our ecosystem services influence the effect of the
+landscape and network metrics on benefit. In all cases the intercept is
+the effect of the landscape or network metric on benefit for an
+ecosystem service with: SS threshold = 10% of the landscape size, SD
+threshold = 10% of the landscape size, patch size effect = linear, SS
+connectivity effect = 0, rival = TRUE, and non-substitutability = 0
+(i.e., perfectly substitutable)
 
-### Effect of amount of supply on benefit
+### Define labels for plots
 
-In the figure below, the baseline effect of the amount of supply on
-benefit is positive (intercept) and this effect becomes more positive
-with: (1) linear versus SAR patch size effects, (2) the effect of
-supply-supply connections becoming more positive, and (3) rival versus
-non rival.
+### Plot for amount of supply
 
-![](simulation_analysis_files/figure-gfm/effect_supply-1.png)<!-- -->
+![](simulation_analysis_files/figure-gfm/plot1-1.png)<!-- -->
 
-### Effect of amount of demand on benefit
+### Plot for amount of demand
 
-In the figure below, the baseline effect of the amount of demand on
-benefit is positive (intercept) and this effect becomes more positive
-with: (1) linear versus SAR patch size effects, and (2) increased
-non-substitutability, and this effect becomes less positive with: (1)
-increased non-substitutability.
+![](simulation_analysis_files/figure-gfm/plot2-1.png)<!-- -->
 
-![](simulation_analysis_files/figure-gfm/effect_demand-1.png)<!-- -->
+### Plot for amount of supply \* demand interaction
 
-### Effect of amount of supply x amount of demand on benefit
+![](simulation_analysis_files/figure-gfm/plot3-1.png)<!-- -->
 
-In the figure below, the baseline effect of the amount of supply x
-amount of demand (i.e., interaction) on benefit is positive (intercept)
-and this effect becomes more positive with: (1) linear versus SAR patch
-size effects, and (2) the effect of supply-supply connections becoming
-more positive, and this effect becomes less positive with: (1) rival
-versus
-non-rival.
+### Plot for fragmentation of supply
 
-![](simulation_analysis_files/figure-gfm/effect_supply_demand-1.png)<!-- -->
+![](simulation_analysis_files/figure-gfm/plot4-1.png)<!-- -->
 
-### Effect of number of supply patches on benefit
+### Plot for fragmentation of demand
 
-In the figure below, the baseline effect of the number of supply patches
-on benefit is positive (intercept) and this effect becomes less positive
-with: (1) linear versus SAR patch size
-effects.
+![](simulation_analysis_files/figure-gfm/plot5-1.png)<!-- -->
 
-![](simulation_analysis_files/figure-gfm/effect_num_supply-1.png)<!-- -->
+### Plot for fragmentation of supply \* demand interaction
 
-### Effect of number of demand patches on benefit
+![](simulation_analysis_files/figure-gfm/plot6-1.png)<!-- -->
 
-In the figure below, the effect of the number of demand patches on
-benefit is small but, the baseline effect of the number of demand
-patches on benefit is negative (intercept) and this effect becomes less
-negative with: (1) rival versus
-non-rival.
+### Plot for number of supply nodes
 
-![](simulation_analysis_files/figure-gfm/effect_num_demand-1.png)<!-- -->
+![](simulation_analysis_files/figure-gfm/plot7-1.png)<!-- -->
 
-### Effect of number of supply patches x number of demand patches on benefit
+### Plot for number of demand nodes
 
-In the figure below, the effect of the number of supply patches x the
-number of demand patches on benefit is very
-small.
+![](simulation_analysis_files/figure-gfm/plot8-1.png)<!-- -->
 
-![](simulation_analysis_files/figure-gfm/effect_num_supply_demand-1.png)<!-- -->
+### Plot for number of supply \* demand nodes interaction
 
-### Effect of supply-supply network density on benefit
+![](simulation_analysis_files/figure-gfm/plot9-1.png)<!-- -->
 
-In the figure below, the effect of the supply-supply network density is
-small, but the baseline effect of the supply-supply network density is
-negative (intercept) and this effect becomes less negative with: (1)
-increasing scale of the supply-supply links, and (2) the effect of
-supply-supply connections becoming more
-positive.
+### Plot for supply-supply network density
 
-![](simulation_analysis_files/figure-gfm/effect_ss_density-1.png)<!-- -->
+![](simulation_analysis_files/figure-gfm/plot10-1.png)<!-- -->
 
-### Effect of supply-demand network density on benefit
+### Plot for supply-demand network density
 
-In the figure below, the effect of the supply-demand network density is
-very
-small.
+![](simulation_analysis_files/figure-gfm/plot11-1.png)<!-- -->
 
-![](simulation_analysis_files/figure-gfm/effect_sd_density-1.png)<!-- -->
+### Plot for supply-supply network centralisation
 
-### Effect of supply-supply network centralisation on benefit
+![](simulation_analysis_files/figure-gfm/plot12-1.png)<!-- -->
 
-In the figure below, the baseline effect of the supply-supply network
-centralisation is negative and this effect becomes less negative with:
-(1) the effect of supply-supply connections becoming more positive.
+### Plot for supply-demand network centralisation (supply nodes only)
 
-![](simulation_analysis_files/figure-gfm/effect_ss_cent-1.png)<!-- -->
+![](simulation_analysis_files/figure-gfm/plot13-1.png)<!-- -->
 
-### Effect of supply-demand network centralisation on benefit
+### Plot for supply-demand network centralisation (demand nodes only)
 
-In the figure below, the effect of the supply-demand network
-centalisation is small, but the baseline effect of the supply-demand
-network centralisation is negative (intercept) and this effect becomes
-less negative with: (1) linear versus SAR patch size effects, and more
-negative with: (1) increasing scale of the supply-supply links, (2)
-increasing scale of the supply-demand links, (3) the effect of
-supply-supply connections becoming more positive, and (4) rival versus
-non-rival.
-
-![](simulation_analysis_files/figure-gfm/effect_sd_cent-1.png)<!-- -->
+![](simulation_analysis_files/figure-gfm/plot14-1.png)<!-- -->

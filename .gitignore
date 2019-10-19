@@ -39,3 +39,4 @@ data/
 
 # We don't want to upload the compiled results
 results/all_replicates.rda
+results/all_replicates_grouped.rda
