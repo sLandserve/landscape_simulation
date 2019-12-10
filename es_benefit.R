@@ -10,8 +10,8 @@ p_supply <- p_demand <- c(0.1, 0.2, 0.3, 0.4, 0.5)
 f_supply <- f_demand <- seq(0, 1, by = 0.1)
 grad <- 0
 inter <- 0
-ee_thresh <- c(9, 23, 46, 69, 83) # chosen to represent 10%, 25%, 50%, 75%, and 90% of the diagonal length of the landscape
-es_thresh <- c(9, 23, 46, 69, 83) # chosen to represent 10%, 25%, 50%, 75%, and 90% of the diagonal length of the landscape
+ee_thresh <- c(9.2, 18.4, 27.6, 36.8, 46.0) # chosen to represent 10%, 20%, 30%, 40%, and 50% of the diagonal length of the landscape
+es_thresh <- c(9.2, 18.4, 27.6, 36.8, 46.0) # chosen to represent 10%, 20%, 30%, 40%, and 50% of the diagonal length of the landscape
 rival <- c(TRUE, FALSE)
 alpha <- c(0.3, 1.0) #chosen to represent a species area relationship and a linear relationship with patch size
 beta <- c(-0.1, -0.01, 0, 0.01, 0.1) #this represents the effect of supply-supply connections
