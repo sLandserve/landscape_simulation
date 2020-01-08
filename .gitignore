@@ -38,5 +38,4 @@ vignettes/*.pdf
 data/
 
 # We don't want to upload the simulated results to github
-results/all_replicates.rda
-results/all_replicates_grouped.rda
+results/
