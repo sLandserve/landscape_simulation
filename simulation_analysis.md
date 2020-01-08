@@ -124,9 +124,16 @@ path_mod <- '
                         total_fs := alpha4 + gamma8 * total_ns + gamma9 * total_ssden + gamma7 * total_sdden
                         total_fd := alpha5 + gamma5 * total_nd + gamma4 * total_sdden
                         total_fsd := alpha6 + gamma6 * total_sdden
+                        direct_fs := alpha4
+                        direct_fd := alpha5
+                        direct_fsd := alpha6
                         total_ps := alpha1 + gamma10 * total_ssden + gamma1 * total_sdden
                         total_pd := alpha2 + gamma2 * total_sdden
                         total_psd := alpha3 + gamma3 * total_sdden
+                        direct_ps := alpha1
+                        direct_pd := alpha2
+                        direct_psd := alpha3
+
                         fs_ns := gamma8
                         fd_nd := gamma5
                         fs_ssden := gamma9
@@ -160,15 +167,16 @@ fit_sem <- function(dat, model) {
 }
 ```
 
-### Define the function to return the total effects of each landscape/network metric
+### Define the function to return the total effects of each landscape/network metrics and the direct effects of the landscape metrics
 
 ``` r
 #change here for different model structures
 get_estimates <- function(model) {
     #select parameter estimates needed                  
     out <- as_tibble(parameterEstimates(model)) %>% filter(label == "total_ps" | label == "total_pd" | label == "total_psd" |
-                            label == "total_fs" | label=="total_fd" | label == "total_fsd" | label == "total_ns" | label == "total_nd"  |
-                            label == "total_nsnd" | label == "total_ssden" | label == "total_sdden" | label == "total_sscen" |
+                            label == "direct_ps" | label == "direct_pd" | label == "direct_psd" |   label == "total_fs" | label=="total_fd" |
+                            label == "total_fsd" | label == "direct_fs" | label=="direct_fd" | label == "direct_fsd" | label == "total_ns" |
+                            label == "total_nd" | label == "total_nsnd" | label == "total_ssden" | label == "total_sdden" | label == "total_sscen" |
                             label == "total_sdcens" | label == "total_sdcend" | label == "fs_ns" | label == "fd_nd" |
                             label == "fs_ssden" | label == "fs_sdden" | label == "fd_sdden" | label == "fsd_sdden" |
                             label == "ps_ssden" | label == "ps_sdden" | label == "pd_sdden" | label == "psd_sdden") %>%
@@ -246,8 +254,11 @@ path_models <-  group_res %>%
                                   substitutability = as.numeric(as.character(substitutability))) %>%                     
                               group_by(label) %>% nest() %>% ungroup()
 
+
+#Test <- data.frame(amount_s = path_models$data[[15]]$est, amount_d = path_models$data[[16]]$est, amount_sd = path_models$data[[17]]$est, frag_s = #path_models$data[[9]]$est, frag_d = path_models$data[[10]]$est, frag_ds = path_models$data[[11]]$est, ns = path_models$data[[6]]$est, nd = #path_models$data[[7]]$est, nsd = path_models$data[[8]]$est, ss_den = path_models$data[[4]]$est, sd_den = path_models$data[[5]]$est, ss_cen = #path_models$data[[1]]$est, sd_cens = path_models$data[[2]]$est, sd_cend = path_models$data[[3]]$est)
+
 #fit linear models to explain path coefficients
-linear_models <- path_models %>% mutate(lm_est = map(.x = data, .f = fit_lm)) %>% mutate(coefs = map(.x = lm_est, .f = coef))   %>% ungroup()                
+#linear_models <- path_models %>% mutate(lm_est = map(.x = data, .f = fit_lm)) %>% mutate(coefs = map(.x = lm_est, .f = coef))  %>% ungroup()                
 ```
 
 ## Plot the results
@@ -261,60 +272,25 @@ threshold = 10% of the landscape size, patch size effect = linear, SS
 connectivity effect = 0, rival = TRUE, and non-substitutability = 0
 (i.e., perfectly substitutable)
 
-### Define labels for plots
+\#Param \<- factor(rep(c(“Intercept”, “SS link scale”, “SD link scale”,
+“SAR vs linear patch size effect”, “SS connectivity effect”, “Rival vs
+non-rival”, \#“Non-substitutability”), times = 3), levels =
+c(“Intercept”, “SS link scale”, “SD link scale”, “SAR vs linear
+patch size effect”, “SS connectivity \#effect”, “Rival vs non-rival”,
+“Non-substitutability”))
 
-### Plot for amount of supply
+\#Metric \<- factor(rep(c(“Amount of Supply”, “Amount of Demand”,
+“Amount of Supply x Demand Interaction”), each = 7), levels =
+c(“Amount of Supply”, \#“Amount of Demand”, “Amount of Supply x Demand
+Interaction”))
 
-![](simulation_analysis_files/figure-gfm/plot1-1.png)<!-- -->
+\#Value \<-
+rbind(enframe(linear\_models\(coefs[[15]], name=NULL), enframe(linear_models\)coefs\[\[16\]\],
+name=NULL), enframe(linear\_models$coefs\[\[17\]\], \#name=NULL))
 
-### Plot for amount of demand
+\#Data \<- data.frame(value = Value, param = Param, metric = Metric)
 
-![](simulation_analysis_files/figure-gfm/plot2-1.png)<!-- -->
-
-### Plot for amount of supply \* demand interaction
-
-![](simulation_analysis_files/figure-gfm/plot3-1.png)<!-- -->
-
-### Plot for fragmentation of supply
-
-![](simulation_analysis_files/figure-gfm/plot4-1.png)<!-- -->
-
-### Plot for fragmentation of demand
-
-![](simulation_analysis_files/figure-gfm/plot5-1.png)<!-- -->
-
-### Plot for fragmentation of supply \* demand interaction
-
-![](simulation_analysis_files/figure-gfm/plot6-1.png)<!-- -->
-
-### Plot for number of supply nodes
-
-![](simulation_analysis_files/figure-gfm/plot7-1.png)<!-- -->
-
-### Plot for number of demand nodes
-
-![](simulation_analysis_files/figure-gfm/plot8-1.png)<!-- -->
-
-### Plot for number of supply \* demand nodes interaction
-
-![](simulation_analysis_files/figure-gfm/plot9-1.png)<!-- -->
-
-### Plot for supply-supply network density
-
-![](simulation_analysis_files/figure-gfm/plot10-1.png)<!-- -->
-
-### Plot for supply-demand network density
-
-![](simulation_analysis_files/figure-gfm/plot11-1.png)<!-- -->
-
-### Plot for supply-supply network centralisation
-
-![](simulation_analysis_files/figure-gfm/plot12-1.png)<!-- -->
-
-### Plot for supply-demand network centralisation (supply nodes only)
-
-![](simulation_analysis_files/figure-gfm/plot13-1.png)<!-- -->
-
-### Plot for supply-demand network centralisation (demand nodes only)
-
-![](simulation_analysis_files/figure-gfm/plot14-1.png)<!-- -->
+\#ggplot(data = Data, aes(x = metric, y = value, fill = param)) +
+geom\_bar(stat = “identity”, width = 0.5, position = position\_dodge())
++ \#theme(axis.text.x = element\_text(angle = 90, hjust = 1, vjust =
+0.5))
