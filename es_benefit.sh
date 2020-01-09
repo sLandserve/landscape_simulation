@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #PBS -N sim_log
-#PBS -l walltime=10:00:00,nodes=1:ppn=16
+#PBS -l walltime=12:00:00,nodes=1:ppn=16
 #PBS -t 1-100
 
 cd $PBS_O_WORKDIR
