@@ -14,6 +14,7 @@ library(lavaan)
 library(tibble)
 library(jtools)
 library(ggplot2)
+
 ```
 
 ## Introduction
@@ -31,17 +32,15 @@ f = list.files("results/benefit_replicates", full.names = TRUE)
 #function to read simulation results and manipulate data
 #this includes removing replicates with on only one supply or demand node (centrality not defined for these cases)
 #and no connections between supply and demand nodes (ecosystem service benefit is always zero in these cases)
-#we also remove replicates with ee_thresh and es_thresh values of 69 or 83 as these result in path model convergence
-#issues due to little variation in network density (in these cases network density is always very high)
+#and replicates where any of the centrality values are NA or NaN
 #here we also standardise the continuous variables characterising the ecosystem services to be between 0 and 1
 #(with beta centred on zero)  
 read_rda = function(x) {
 	load(x)
 	res <- out %>%
-				 filter(ee_thresh != 69 & ee_thresh != 83 & es_thresh != 69 & es_thresh != 83) %>%
 				 mutate_at(.vars = c("ee_thresh", "es_thresh", "gamma"), .funs = function(x) (((x - min(x)) / (max(x) - min(x))))) %>%
 				 mutate_at(.vars = c("beta"), .funs = function(x) (((x - min(x)) / (max(x) - min(x))) - 0.5)) %>%
-				 filter((num_supply > 1) & (num_demand > 1) & !is.na(es_density)) %>%
+				 filter((num_supply > 1) & (num_demand > 1) & !(es_density == 0) & !is.na(ee_centr_degree) & !is.na(es_centr_degree_supply) & !is.na(es_centr_degree_demand)) %>%
 				 mutate(ee_thresh = as.factor(ee_thresh),
 				 es_thresh = as.factor(es_thresh),															
 				 patch_size_effect = relevel(as.factor(alpha), ref = "1"),
@@ -57,13 +56,15 @@ read_rda = function(x) {
 }
 out <- map_dfr(f[1:20], read_rda) #note: need to find solution to dealing with large file sizes - currently analysis only for 20 replicates
 save(out, file = "results/all_replicates.rda")
+
 ```
 
 ### Load simulation results if necessary
 
-```{r load_data, echo = TRUE, eval = FALSE}
+```{r load_data, echo = TRUE, eval = TRUE}
 #set eval = TRUE if need to load compiled data
 load("results/all_replicates.rda")
+
 ```
 
 ### Group data
@@ -79,6 +80,7 @@ group_res <- out %>%
 rm(out)
 invisible(gc(verbose = FALSE))
 save(group_res, file = "results/all_replicates_grouped.rda")
+
 ```
 
 ### Load grouped simulation results if necessary
@@ -86,6 +88,7 @@ save(group_res, file = "results/all_replicates_grouped.rda")
 ```{r load_grp_data, echo = TRUE, eval = TRUE}
 #set eval = TRUE if need to load grouped compiled data
 load("results/all_replicates_grouped.rda")
+
 ```
 
 ## Model fitting
@@ -103,7 +106,6 @@ Finally this model are then compared to a model where landscape composition is o
 ### Define path model structures
 
 ```{r path_model, echo = TRUE, eval = TRUE}
-
 #model without network metrics - change here to change model structure
 path_mod_land <- '
 						#regressions
@@ -119,7 +121,7 @@ path_mod_land <- '
 #model with network metrics - change here to change model structure
 path_mod_net <- '
 						#regressions
-						benefit ~  alpha1 * p_supply + alpha2 * num_supply + alpha3 * ee_density + alpha6 * ee_centr_degree + beta1 * p_demand + beta2 * num_demand + gamma1 * es_density + gamma4 * es_centr_degree_supply + gamma5 * es_centr_degree_demand     
+						benefit ~  alpha1 * p_supply + alpha2 * num_supply + alpha4 * ee_density + alpha6 * ee_centr_degree + beta1 * p_demand + beta2 * num_demand + gamma1 * es_density + gamma4 * es_centr_degree_supply + gamma5 * es_centr_degree_demand     
 						num_supply ~ alpha8 * f_supply
 						ee_density ~ alpha3 * num_supply
 						ee_centr_degree ~ alpha5 * ee_density
@@ -131,16 +133,17 @@ path_mod_net <- '
 						#calculate total effects
 						total_ps := alpha1
 						total_pd := beta1
-						total_fs := alpha8 * (alpha2 + alpha3 * (alpha3 + alpha5 * alpha6) + alpha7 * (gamma1 + gamma2 * gamma4 + gamma3 * gamma5))
+						total_fs := alpha8 * (alpha2 + alpha3 * (alpha4 + alpha5 * alpha6) + alpha7 * (gamma1 + gamma2 * gamma4 + gamma3 * gamma5))
 						total_fd := beta4 * (beta2 + beta3 * (gamma1 + gamma2 * gamma4 + gamma3 * gamma5))
-						total_ns := alpha2 + alpha3 * (alpha3 + alpha5 * alpha6) + alpha7 * (gamma1 + gamma2 * gamma4 + gamma3 * gamma5)  
+						total_ns := alpha2 + alpha3 * (alpha4 + alpha5 * alpha6) + alpha7 * (gamma1 + gamma2 * gamma4 + gamma3 * gamma5)  
 						total_nd := beta2 + beta3 * (gamma1 + gamma2 * gamma4 + gamma3 * gamma5)
-						total_ssden := alpha3 + alpha5 * alpha6
+						total_ssden := alpha4 + alpha5 * alpha6
 						total_sdden := gamma1 + gamma2 * gamma4 + gamma3 * gamma5
 						total_sscen := alpha6
 						total_sdcens := gamma4
 						total_sdcend := gamma5																		
 '
+
 ```
 
 ### Define the function to standardise the data for the path model
@@ -150,19 +153,23 @@ path_mod_net <- '
 #scaling the benefit to the 0 - 1 range makes it a measure of natures contribution to people expressed as a proportion
 #of the maximum achievable for each ecosystem service.
 scale_vars <- function(data) {
-		data %>% mutate_at(.vars = c("benefit", "num_supply", "num_demand"), .funs = function(x) (x - min(x)) / (max(x) - min(x)))
+		data %>% mutate_at(.vars = c("benefit"), .funs = function(x) (x - min(x)) / (max(x) - min(x)))
+		#alternative scaling
+		#data %>% mutate_at(.vars = c("benefit", "num_supply", "num_demand"), .funs = function(x) (x - min(x)) / (max(x) - min(x)))
 		#alternative scaling
 		#data %>% mutate_at(.vars = c("benefit", "p_supply", "p_demand", "f_supply", "f_demand", "num_supply", "num_demand", "ee_density",
 		#"ee_centr_degree", "es_density", "es_centr_degree_supply", "es_centr_degree_demand"), .funs = function(x) (x - min(x)) / (max(x) - min(x)))
 }
+
 ```
 
 ### Define the function to fit the path models
 
 ```{r fit_model, echo = TRUE, eval = TRUE}
 fit_sem <- function(dat, model) {
-  try(sem(model, data = dat), silent = TRUE) #to catch and ignore models that fail with an error or warning
+	try(sem(model, data = dat, std.ov = TRUE), silent = TRUE) #to catch and ignore models that fail with an error or warning
 }
+
 ````
 
 ### Define the function to return the total effects of each network metric
@@ -178,6 +185,7 @@ get_estimates <- function(model) {
 							select(label, est, se, ci.lower, ci.upper)
 	return(out)
 }
+
 ````
 
 ### Define the function to return the r-squared values
@@ -189,6 +197,7 @@ get_rsquared <- function(model) {
 	out <- lavInspect(model, "rsquare")
 	return(out)
 }
+
 ````
 
 ### Define the function to fit the linear models to explain the effects estimated from the path models
@@ -198,6 +207,7 @@ get_rsquared <- function(model) {
 fit_lm <- function(data) {
 	lm(est ~ ee_thresh + es_thresh + patch_size_effect + ee_connectivity_effect + rivalness + substitutability, data = data)
 }
+
 ```
 
 ### Run the analysis

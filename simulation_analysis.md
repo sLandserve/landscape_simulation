@@ -16,27 +16,22 @@ f = list.files("results/benefit_replicates", full.names = TRUE)
 
 #function to read simulation results and manipulate data
 #this includes removing replicates with on only one supply or demand node (centrality not defined for these cases)
-#and no connections between supply and demand nodes (ecosystem service benefit is always zero in this case)
-#we also remove replicates with ee_thresh and es_thresh values of 69 or 83 as these result in path model convergence
-#issues due to little variation in network density (in these cases network density is always high)
+#and no connections between supply and demand nodes (ecosystem service benefit is always zero in these cases)
+#and replicates where any of the centrality values are NA or NaN
+#here we also standardise the continuous variables characterising the ecosystem services to be between 0 and 1
+#(with beta centred on zero)  
 read_rda = function(x) {
     load(x)
     res <- out %>%
-                 filter(ee_thresh != 69 & ee_thresh != 83 & es_thresh != 69 & es_thresh != 83) %>%
                  mutate_at(.vars = c("ee_thresh", "es_thresh", "gamma"), .funs = function(x) (((x - min(x)) / (max(x) - min(x))))) %>%
                  mutate_at(.vars = c("beta"), .funs = function(x) (((x - min(x)) / (max(x) - min(x))) - 0.5)) %>%
-                 filter((num_supply > 1) & (num_demand > 1) & !is.na(es_density)) %>%
-                 mutate(es_centr_degree_supply = es_centr_degree_supply * (num_supply - 1) * (num_demand - 1) /
-                 ((num_supply - 1) * num_demand), es_centr_degree_demand = es_centr_degree_demand * (num_supply - 1) * (num_demand - 1) /
-                 (num_supply * (num_demand - 1))) %>%
+                 filter((num_supply > 1) & (num_demand > 1) & !(es_density == 0) & !is.na(ee_centr_degree) & !is.na(es_centr_degree_supply) & !is.na(es_centr_degree_demand)) %>%
                  mutate(ee_thresh = as.factor(ee_thresh),
-                 es_thresh = as.factor(es_thresh),                                                              
+                 es_thresh = as.factor(es_thresh),                                                          
                  patch_size_effect = relevel(as.factor(alpha), ref = "1"),
                  ee_connectivity_effect = as.factor(beta),           
                  rivalness = relevel(as.factor(rival), ref = "FALSE"),
-                 substitutability = as.factor(gamma),
-                 size_supply = p_supply / num_supply,
-                 size_demand = p_demand / num_demand) %>%
+                 substitutability = as.factor(gamma)) %>%
                  select(benefit, p_supply, p_demand, f_supply, f_demand, num_supply, ee_density, ee_centr_degree, num_demand, es_density,
                  es_centr_degree_supply, es_centr_degree_demand, ee_thresh, es_thresh, patch_size_effect, ee_connectivity_effect,
                  rivalness, substitutability)
@@ -80,82 +75,79 @@ load("results/all_replicates_grouped.rda")
 ## Model fitting
 
 Here we first develop path models based on the conceptualisation of the
-relationships between the amount and fragmentation of supply and demand
-and network metrics represented in the figure below.
+relationships between the landscape and network metrics represented in
+the figure below. Note: currently interspersion is not considered.
 
 ![](figs/path_model.png)<!-- -->
 
 Then we develop a linear model to explain the total effects (direct plus
-indirect) of each landscape and network metric variables on benefit, as
-a function of: (1) the spatial scale of supply-supply links, (2) the
-spatial scale of the supply-demand links,(3) whether the effect of patch
-size on supply is linear, or follows a species-area relationship (SAR),
-(4) the size and direction of the effect of supply-supply links, (5)
-whether the ecosystem service is rival or non-rival, and (6) the
-substitutability of the ecosystem service.
+indirect) of the landscape and network metric on benefit, as a function
+of: (1) the spatial scale of supply-supply links, (2) the spatial scale
+of the supply-demand links,(3) whether the effect of patch size on
+supply is linear, or follows a species-area relationship (SAR), (4) the
+size and direction of the effect of supply-supply links, (5) whether the
+ecosystem service is rival or non-rival, and (6) the substitutability of
+the ecosystem service.
 
-### Define path model structure
+Finally this model are then compared to a model where landscape
+composition is only represented by the fragmentation and interspersion
+metrics so as to assess the role of the network metrics.
+
+### Define path model structures
 
 ``` r
-#change here to change model structure
-path_mod <- '
+#model without network metrics - change here to change model structure
+path_mod_land <- '
                         #regressions
-                        benefit ~  alpha1 * p_supply + alpha2 * p_demand + alpha3 * p_demand:p_supply + alpha4 * f_supply + alpha5 * f_demand + alpha6 * f_demand:f_supply +    beta1 * num_supply + beta2 * ee_density + beta3 * ee_centr_degree + beta4 * num_demand + beta5 * es_density + beta6 * es_centr_degree_supply + beta7 * es_centr_degree_demand
-                        num_supply ~ gamma8 * f_supply
-                        ee_density ~ gamma10 * p_supply + gamma9 * f_supply + eta1 * num_supply
-                        ee_centr_degree ~ eta2 * ee_density
-                        num_demand ~ gamma5 * f_demand
-                        es_density ~ gamma1 * p_supply + gamma2 * p_demand + gamma3 * p_demand:p_supply + gamma7 * f_supply + gamma4 * f_demand  + gamma6 * f_demand:f_supply + eta3 * num_supply + eta4 * num_demand + eta5 * num_supply:num_demand
-                        es_centr_degree_supply ~ eta6 * es_density
-                        es_centr_degree_demand ~ eta7 * es_density                      
-
-                        #covariances
-                        es_centr_degree_supply ~~ es_centr_degree_demand
+                        benefit ~  alpha1 * p_supply + beta1 * p_demand + alpha8 * f_supply + beta4 * f_demand     
 
                         #calculate total effects
-                        total_sscen := beta3
-                        total_sdcens := beta6
-                        total_sdcend := beta7
-                        total_ssden := beta2 + eta2 * total_sscen
-                        total_sdden := beta5 + eta6 * total_sdcens + eta7 * total_sdcend
-                        total_ns := beta1 + eta1 * total_ssden + eta3 * total_sdden
-                        total_nd := beta4 + eta4 * total_sdden
-                        total_nsnd := eta5 * total_sdden
-                        total_fs := alpha4 + gamma8 * total_ns + gamma9 * total_ssden + gamma7 * total_sdden
-                        total_fd := alpha5 + gamma5 * total_nd + gamma4 * total_sdden
-                        total_fsd := alpha6 + gamma6 * total_sdden
-                        direct_fs := alpha4
-                        direct_fd := alpha5
-                        direct_fsd := alpha6
-                        total_ps := alpha1 + gamma10 * total_ssden + gamma1 * total_sdden
-                        total_pd := alpha2 + gamma2 * total_sdden
-                        total_psd := alpha3 + gamma3 * total_sdden
-                        direct_ps := alpha1
-                        direct_pd := alpha2
-                        direct_psd := alpha3
+                        total_ps := alpha1
+                        total_pd := beta1
+                        total_fs := alpha8
+                        total_fd := beta4                                                                                           
+'
 
-                        fs_ns := gamma8
-                        fd_nd := gamma5
-                        fs_ssden := gamma9
-                        fs_sdden := gamma7
-                        fd_sdden := gamma4
-                        fsd_ssden := gamma6
-                        ps_ssden := gamma10
-                        ps_sdden := gamma1
-                        pd_sdden := gamma1
-                        psd_ssden := gamma3                                 
+#model with network metrics - change here to change model structure
+path_mod_net <- '
+                        #regressions
+                        benefit ~  alpha1 * p_supply + alpha2 * num_supply + alpha4 * ee_density + alpha6 * ee_centr_degree + beta1 * p_demand + beta2 * num_demand + gamma1 * es_density + gamma4 * es_centr_degree_supply + gamma5 * es_centr_degree_demand     
+                        num_supply ~ alpha8 * f_supply
+                        ee_density ~ alpha3 * num_supply
+                        ee_centr_degree ~ alpha5 * ee_density
+                        num_demand ~ beta4 * f_demand
+                        es_density ~ alpha7 * num_supply + beta3 * num_demand
+                        es_centr_degree_supply ~ gamma2 * es_density
+                        es_centr_degree_demand ~ gamma3 * es_density                        
+
+                        #calculate total effects
+                        total_ps := alpha1
+                        total_pd := beta1
+                        total_fs := alpha8 * (alpha2 + alpha3 * (alpha4 + alpha5 * alpha6) + alpha7 * (gamma1 + gamma2 * gamma4 + gamma3 * gamma5))
+                        total_fd := beta4 * (beta2 + beta3 * (gamma1 + gamma2 * gamma4 + gamma3 * gamma5))
+                        total_ns := alpha2 + alpha3 * (alpha4 + alpha5 * alpha6) + alpha7 * (gamma1 + gamma2 * gamma4 + gamma3 * gamma5)  
+                        total_nd := beta2 + beta3 * (gamma1 + gamma2 * gamma4 + gamma3 * gamma5)
+                        total_ssden := alpha4 + alpha5 * alpha6
+                        total_sdden := gamma1 + gamma2 * gamma4 + gamma3 * gamma5
+                        total_sscen := alpha6
+                        total_sdcens := gamma4
+                        total_sdcend := gamma5                                                                      
 '
 ```
 
-### Define the function to scale the data for the path model
+### Define the function to standardise the data for the path model
 
 ``` r
-#change type of scaling here if necessary - currently scales benefit, num_supply, num_demand to the 0 - 1 range
-#all other variables are naturally scaled in the 0 - 1 range
+#change type of standardisation here if necessary - currently standardises benefit and predictor variables to the 0 - 1 range.
 #scaling the benefit to the 0 - 1 range makes it a measure of natures contribution to people expressed as a proportion
-#of the maximum achievable for each ecosystem service
+#of the maximum achievable for each ecosystem service.
 scale_vars <- function(data) {
-        data %>% mutate_at(.vars = c("benefit", "num_supply", "num_demand"), .funs = function(x) (x - min(x)) / (max(x) - min(x)))
+        data %>% mutate_at(.vars = c("benefit"), .funs = function(x) (x - min(x)) / (max(x) - min(x)))
+        #alternative scaling
+        #data %>% mutate_at(.vars = c("benefit", "num_supply", "num_demand"), .funs = function(x) (x - min(x)) / (max(x) - min(x)))
+        #alternative scaling
+        #data %>% mutate_at(.vars = c("benefit", "p_supply", "p_demand", "f_supply", "f_demand", "num_supply", "num_demand", "ee_density",
+        #"ee_centr_degree", "es_density", "es_centr_degree_supply", "es_centr_degree_demand"), .funs = function(x) (x - min(x)) / (max(x) - min(x)))
 }
 ```
 
@@ -163,24 +155,32 @@ scale_vars <- function(data) {
 
 ``` r
 fit_sem <- function(dat, model) {
-  try(sem(model, data = dat), silent = TRUE) #to catch and ignore models that fail with an error or warning
+    try(sem(model, data = dat, std.ov = TRUE), silent = TRUE) #to catch and ignore models that fail with an error or warning
 }
 ```
 
-### Define the function to return the total effects of each landscape/network metrics and the direct effects of the landscape metrics
+### Define the function to return the total effects of each network metric
 
 ``` r
 #change here for different model structures
 get_estimates <- function(model) {
     #select parameter estimates needed                  
-    out <- as_tibble(parameterEstimates(model)) %>% filter(label == "total_ps" | label == "total_pd" | label == "total_psd" |
-                            label == "direct_ps" | label == "direct_pd" | label == "direct_psd" |   label == "total_fs" | label=="total_fd" |
-                            label == "total_fsd" | label == "direct_fs" | label=="direct_fd" | label == "direct_fsd" | label == "total_ns" |
-                            label == "total_nd" | label == "total_nsnd" | label == "total_ssden" | label == "total_sdden" | label == "total_sscen" |
-                            label == "total_sdcens" | label == "total_sdcend" | label == "fs_ns" | label == "fd_nd" |
-                            label == "fs_ssden" | label == "fs_sdden" | label == "fd_sdden" | label == "fsd_sdden" |
-                            label == "ps_ssden" | label == "ps_sdden" | label == "pd_sdden" | label == "psd_sdden") %>%
+    out <- as_tibble(parameterEstimates(model)) %>% filter(label == "total_ps" | label == "total_pd" | label == "total_pspd" |
+                            label == "total_fs" | label == "total_fd" | label == "total_ns" | label == "total_psns" | label=="total_nd" |
+                            label == "total_pdnd" | label == "total_ssden" | label == "total_sdden" | label == "total_sscen" |
+                            label == "total_sdcens" | label == "total_sdcend") %>%
                             select(label, est, se, ci.lower, ci.upper)
+    return(out)
+}
+```
+
+### Define the function to return the r-squared values
+
+``` r
+#change here for different model structures
+get_rsquared <- function(model) {
+    #select parameter estimates needed                  
+    out <- lavInspect(model, "rsquare")
     return(out)
 }
 ```
@@ -202,95 +202,139 @@ cor(select(group_res$data[[1]],c(num_supply, num_demand, p_supply, p_demand, ee_
                     es_centr_degree_demand)), use="complete.obs", method=c("spear"))
 ```
 
-    ##                          num_supply    num_demand     p_supply
-    ## num_supply              1.000000000  0.0021870018 -0.003233271
-    ## num_demand              0.002187002  1.0000000000 -0.003426850
-    ## p_supply               -0.003233271 -0.0034268495  1.000000000
-    ## p_demand               -0.002806833 -0.0033782229 -0.001550376
-    ## ee_density             -0.965296270 -0.0024854807  0.037612635
-    ## ee_centr_degree         0.493419183 -0.0005491816  0.307499524
-    ## es_density             -0.516590950 -0.5168929612  0.178576880
-    ## es_centr_degree_supply -0.001418058 -0.0510389411  0.561122958
-    ## es_centr_degree_demand -0.045522628  0.0040213873 -0.100037361
-    ##                             p_demand   ee_density ee_centr_degree
-    ## num_supply             -0.0028068328 -0.965296270    0.4934191825
-    ## num_demand             -0.0033782229 -0.002485481   -0.0005491816
-    ## p_supply               -0.0015503764  0.037612635    0.3074995243
-    ## p_demand                1.0000000000  0.002050280    0.0005576573
-    ## ee_density              0.0020502799  1.000000000   -0.4018256138
-    ## ee_centr_degree         0.0005576573 -0.401825614    1.0000000000
-    ## es_density              0.1755709708  0.504898731   -0.2861870783
-    ## es_centr_degree_supply -0.1004572821  0.020716739    0.2528502824
-    ## es_centr_degree_demand  0.5584410358  0.085837508   -0.0024996085
-    ##                        es_density es_centr_degree_supply
-    ## num_supply             -0.5165910           -0.001418058
-    ## num_demand             -0.5168930           -0.051038941
-    ## p_supply                0.1785769            0.561122958
-    ## p_demand                0.1755710           -0.100457282
-    ## ee_density              0.5048987            0.020716739
-    ## ee_centr_degree        -0.2861871            0.252850282
-    ## es_density              1.0000000            0.198518171
-    ## es_centr_degree_supply  0.1985182            1.000000000
-    ## es_centr_degree_demand  0.1888120           -0.211496149
-    ##                        es_centr_degree_demand
-    ## num_supply                       -0.045522628
-    ## num_demand                        0.004021387
-    ## p_supply                         -0.100037361
-    ## p_demand                          0.558441036
-    ## ee_density                        0.085837508
-    ## ee_centr_degree                  -0.002499609
-    ## es_density                        0.188812048
-    ## es_centr_degree_supply           -0.211496149
-    ## es_centr_degree_demand            1.000000000
+    ##                         num_supply  num_demand     p_supply     p_demand
+    ## num_supply              1.00000000 -0.08164198 -0.020199996 -0.030948303
+    ## num_demand             -0.08164198  1.00000000 -0.034750369 -0.012332938
+    ## p_supply               -0.02020000 -0.03475037  1.000000000  0.003184605
+    ## p_demand               -0.03094830 -0.01233294  0.003184605  1.000000000
+    ## ee_density             -0.79510732  0.07703122 -0.012581529  0.026321462
+    ## ee_centr_degree         0.52131937 -0.06125785  0.391568490 -0.022306375
+    ## es_density             -0.50352435 -0.53033725  0.187461199  0.184512864
+    ## es_centr_degree_supply -0.34504664 -0.12450964  0.335064176  0.047154185
+    ## es_centr_degree_demand -0.13232499 -0.35059877  0.047217229  0.339842851
+    ##                         ee_density ee_centr_degree es_density
+    ## num_supply             -0.79510732      0.52131937 -0.5035244
+    ## num_demand              0.07703122     -0.06125785 -0.5303372
+    ## p_supply               -0.01258153      0.39156849  0.1874612
+    ## p_demand                0.02632146     -0.02230638  0.1845129
+    ## ee_density              1.00000000     -0.55000479  0.4461208
+    ## ee_centr_degree        -0.55000479      1.00000000 -0.2580086
+    ## es_density              0.44612079     -0.25800863  1.0000000
+    ## es_centr_degree_supply  0.29392258      0.03982761  0.3639346
+    ## es_centr_degree_demand  0.21234075     -0.13734467  0.3771099
+    ##                        es_centr_degree_supply es_centr_degree_demand
+    ## num_supply                        -0.34504664            -0.13232499
+    ## num_demand                        -0.12450964            -0.35059877
+    ## p_supply                           0.33506418             0.04721723
+    ## p_demand                           0.04715419             0.33984285
+    ## ee_density                         0.29392258             0.21234075
+    ## ee_centr_degree                    0.03982761            -0.13734467
+    ## es_density                         0.36393460             0.37710991
+    ## es_centr_degree_supply             1.00000000             0.30295369
+    ## es_centr_degree_demand             0.30295369             1.00000000
 
 ``` r
-#fit the path models
+#fit the path models with just the landscape metrics
 options(warn = 2) #so as to catch warnings as well as errors
-path_models <-  group_res %>%
-                                    mutate(data_scaled = map(data, scale_vars), mod = map(.x = data_scaled, .f = fit_sem, model = path_mod), class = map(mod, class)) %>%
-                                    filter(!(class == "try-error")) %>% mutate(effects = map(mod, get_estimates)) %>% select(-data, -data_scaled, -mod, -class) %>% unnest(cols = effects) %>% ungroup() %>%
-                                    mutate(ee_thresh = as.numeric(as.character(ee_thresh)), es_thresh = as.numeric(as.character(es_thresh)),
-                                  ee_connectivity_effect = as.numeric(as.character(ee_connectivity_effect)),
-                                  substitutability = as.numeric(as.character(substitutability))) %>%                     
-                              group_by(label) %>% nest() %>% ungroup()
+path_fits_land <-   group_res %>%
+                                            mutate(data_scaled = map(data, scale_vars), mod = map(.x = data_scaled, .f = fit_sem, model = path_mod_land),
+                                            class = map(mod, class)) %>% filter(!(class == "try-error")) %>% mutate(effects = map(mod, get_estimates),
+                                            r2 = map(mod, get_rsquared)) %>% select(-data, -data_scaled, -mod, -class)
+path_results_land   <- path_fits_land %>% unnest(cols = effects) %>% ungroup() %>%
+                                            mutate(ee_thresh = as.numeric(as.character(ee_thresh)), es_thresh = as.numeric(as.character(es_thresh)),
+                                        ee_connectivity_effect = as.numeric(as.character(ee_connectivity_effect)),
+                                        substitutability = as.numeric(as.character(substitutability))) %>%                   
+                                    group_by(label) %>% nest() %>% ungroup()
 
+#get mean r-squared values
+r2_land <- mean(unlist(path_fits_land$r2))
 
-#Test <- data.frame(amount_s = path_models$data[[15]]$est, amount_d = path_models$data[[16]]$est, amount_sd = path_models$data[[17]]$est, frag_s = #path_models$data[[9]]$est, frag_d = path_models$data[[10]]$est, frag_ds = path_models$data[[11]]$est, ns = path_models$data[[6]]$est, nd = #path_models$data[[7]]$est, nsd = path_models$data[[8]]$est, ss_den = path_models$data[[4]]$est, sd_den = path_models$data[[5]]$est, ss_cen = #path_models$data[[1]]$est, sd_cens = path_models$data[[2]]$est, sd_cend = path_models$data[[3]]$est)
+#fit linear models to explain path coefficients for just the landscape metrics
+linear_models_land <- path_results_land %>% mutate(lm_est = map(.x = data, .f = fit_lm)) %>% mutate(coefs = map(.x = lm_est, .f = coef))    %>% ungroup()       
 
-#fit linear models to explain path coefficients
-#linear_models <- path_models %>% mutate(lm_est = map(.x = data, .f = fit_lm)) %>% mutate(coefs = map(.x = lm_est, .f = coef))  %>% ungroup()                
+#fit the path models with the landscape and network metrics
+options(warn = 2) #so as to catch warnings as well as errors
+path_fits_net <-    group_res %>%
+                                            mutate(data_scaled = map(data, scale_vars), mod = map(.x = data_scaled, .f = fit_sem, model = path_mod_net),
+                                            class = map(mod, class)) %>% filter(!(class == "try-error")) %>% mutate(effects = map(mod, get_estimates),
+                                            r2 = map(mod, get_rsquared)) %>% select(-data, -data_scaled, -mod, -class)
+path_results_net    <- path_fits_net %>% unnest(cols = effects) %>% ungroup() %>%
+                                            mutate(ee_thresh = as.numeric(as.character(ee_thresh)), es_thresh = as.numeric(as.character(es_thresh)),
+                                        ee_connectivity_effect = as.numeric(as.character(ee_connectivity_effect)),
+                                        substitutability = as.numeric(as.character(substitutability))) %>%                   
+                                    group_by(label) %>% nest() %>% ungroup()
+
+#get mean r-squared values
+r2_net <- mean(unlist(lapply(path_fits_net$r2,function(X) X["benefit"])))
+
+#fit linear models to explain path coefficients for the landscape and network metrics
+linear_models_net <- path_results_net %>% mutate(lm_est = map(.x = data, .f = fit_lm)) %>% mutate(coefs = map(.x = lm_est, .f = coef))  %>% ungroup()
 ```
 
-## Plot the results
+### Plot the results for landscape metrics model
 
-In all the plots below we explore how each of the variables that
-characterise our ecosystem services influence the effect of the
-landscape and network metrics on benefit. In all cases the intercept is
-the effect of the landscape or network metric on benefit for an
-ecosystem service with: SS threshold = 10% of the landscape size, SD
-threshold = 10% of the landscape size, patch size effect = linear, SS
-connectivity effect = 0, rival = TRUE, and non-substitutability = 0
-(i.e., perfectly substitutable)
+``` r
+#plot results of landscape metrics model for ecological characteristics
 
-\#Param \<- factor(rep(c(“Intercept”, “SS link scale”, “SD link scale”,
-“SAR vs linear patch size effect”, “SS connectivity effect”, “Rival vs
-non-rival”, \#“Non-substitutability”), times = 3), levels =
-c(“Intercept”, “SS link scale”, “SD link scale”, “SAR vs linear
-patch size effect”, “SS connectivity \#effect”, “Rival vs non-rival”,
-“Non-substitutability”))
+Param <- factor(rep(c("Intercept", "S-S link scale", "SAR patch size effect", "S-S connectivity effect"), times = 4), levels = c("Intercept", "S-S link scale", "SAR patch size effect", "S-S connectivity effect"))
 
-\#Metric \<- factor(rep(c(“Amount of Supply”, “Amount of Demand”,
-“Amount of Supply x Demand Interaction”), each = 7), levels =
-c(“Amount of Supply”, \#“Amount of Demand”, “Amount of Supply x Demand
-Interaction”))
+Metric <- factor(rep(c("Amount Supply", "Amount Demand", "Fragmentation Supply", "Fragmentation Demand"), each = 4), levels = c("Amount Supply", "Amount Demand", "Fragmentation Supply", "Fragmentation Demand"))
 
-\#Value \<-
-rbind(enframe(linear\_models\(coefs[[15]], name=NULL), enframe(linear_models\)coefs\[\[16\]\],
-name=NULL), enframe(linear\_models$coefs\[\[17\]\], \#name=NULL))
+Value <- rbind(enframe(linear_models_land$coefs[[1]][c(1,2,4,5)], name=NULL), enframe(linear_models_land$coefs[[2]][c(1,2,4,5)], name=NULL), enframe(linear_models_land$coefs[[3]][c(1,2,4,5)], name=NULL), enframe(linear_models_land$coefs[[4]][c(1,2,4,5)], name=NULL))
 
-\#Data \<- data.frame(value = Value, param = Param, metric = Metric)
+Data <- data.frame(value = Value, param = Param, metric = Metric)
 
-\#ggplot(data = Data, aes(x = metric, y = value, fill = param)) +
-geom\_bar(stat = “identity”, width = 0.5, position = position\_dodge())
-+ \#theme(axis.text.x = element\_text(angle = 90, hjust = 1, vjust =
-0.5))
+ggplot(data = Data, aes(x = metric, y = value, fill = param)) + geom_bar(stat = "identity", width = 0.5, position = position_dodge()) + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + theme(legend.position="bottom") + theme(legend.title=element_blank()) + ggtitle("Landscape Metrics and Ecological Characteristics") + theme(plot.title = element_text(hjust = 0.5)) +labs(y= "Effect size", x = "")
+```
+
+![](simulation_analysis_files/figure-gfm/plot_results_landscape-1.png)<!-- -->
+
+``` r
+#plot results of landscape metrics model for social-ecological characteristics
+
+Param <- factor(rep(c("Intercept", "S-D link scale", "Rival", "Non-substitutability"), times = 4), levels = c("Intercept", "S-D link scale", "Rival", "Non-substitutability"))
+
+Metric <- factor(rep(c("Amount Supply", "Amount Demand", "Fragmentation Supply", "Fragmentation Demand"), each = 4), levels = c("Amount Supply", "Amount Demand", "Fragmentation Supply", "Fragmentation Demand"))
+
+Value <- rbind(enframe(linear_models_land$coefs[[1]][c(1,3,6,7)], name=NULL), enframe(linear_models_land$coefs[[2]][c(1,3,6,7)], name=NULL), enframe(linear_models_land$coefs[[3]][c(1,3,6,7)], name=NULL), enframe(linear_models_land$coefs[[4]][c(1,3,6,7)], name=NULL))
+
+Data <- data.frame(value = Value, param = Param, metric = Metric)
+
+ggplot(data = Data, aes(x = metric, y = value, fill = param)) + geom_bar(stat = "identity", width = 0.5, position = position_dodge()) + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + theme(legend.position="bottom") + theme(legend.title=element_blank()) + ggtitle("Landscape Metrics and Social-ecological Characteristics") + theme(plot.title = element_text(hjust = 0.5)) +labs(y= "Effect size", x = "")
+```
+
+![](simulation_analysis_files/figure-gfm/plot_results_landscape-2.png)<!-- -->
+
+### Plot the results for network metrics model
+
+``` r
+#plot results of network metrics model for ecological characteristics
+
+Param <- factor(rep(c("Intercept", "S-S link scale", "SAR patch size effect", "S-S connectivity effect"), times = 7), levels = c("Intercept", "S-S link scale", "SAR patch size effect", "S-S connectivity effect"))
+
+Metric <- factor(rep(c("Number supply", "Number demand", "S-S density", "S-D density", "S-S centralisation", "S-D centralisation (supply)", "S-D centralisation (demand)"), each = 4), levels = c("Number supply", "Number demand", "S-S density", "S-D density", "S-S centralisation", "S-D centralisation (supply)", "S-D centralisation (demand)"))
+
+Value <- rbind(enframe(linear_models_net$coefs[[5]][c(1,2,4,5)], name=NULL), enframe(linear_models_net$coefs[[6]][c(1,2,4,5)], name=NULL), enframe(linear_models_net$coefs[[7]][c(1,2,4,5)], name=NULL), enframe(linear_models_net$coefs[[8]][c(1,2,4,5)], name=NULL), enframe(linear_models_net$coefs[[9]][c(1,2,4,5)], name=NULL), enframe(linear_models_net$coefs[[10]][c(1,2,4,5)], name=NULL), enframe(linear_models_net$coefs[[11]][c(1,2,4,5)], name=NULL))
+
+Data <- data.frame(value = Value, param = Param, metric = Metric)
+
+ggplot(data = Data, aes(x = metric, y = value, fill = param)) + geom_bar(stat = "identity", width = 0.5, position = position_dodge()) + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + theme(legend.position="bottom") + theme(legend.title=element_blank()) + ggtitle("Network Metrics and Ecological Characteristics") + theme(plot.title = element_text(hjust = 0.5)) +labs(y= "Effect size", x = "")
+```
+
+![](simulation_analysis_files/figure-gfm/plot_results_network-1.png)<!-- -->
+
+``` r
+#plot results of network metrics model for social-ecological characteristics
+
+Param <- factor(rep(c("Intercept", "S-D link scale", "Rival", "Non-substitutability"), times = 7), levels = c("Intercept", "S-D link scale", "Rival", "Non-substitutability"))
+
+Metric <- factor(rep(c("Number supply", "Number demand", "S-S density", "S-D density", "S-S centralisation", "S-D centralisation (supply)", "S-D centralisation (demand)"), each = 4), levels = c("Number supply", "Number demand", "S-S density", "S-D density", "S-S centralisation", "S-D centralisation (supply)", "S-D centralisation (demand)"))
+
+Value <- rbind(enframe(linear_models_net$coefs[[5]][c(1,3,6,7)], name=NULL), enframe(linear_models_net$coefs[[6]][c(1,3,6,7)], name=NULL), enframe(linear_models_net$coefs[[7]][c(1,3,6,7)], name=NULL), enframe(linear_models_net$coefs[[8]][c(1,3,6,7)], name=NULL), enframe(linear_models_net$coefs[[9]][c(1,3,6,7)], name=NULL), enframe(linear_models_net$coefs[[10]][c(1,3,6,7)], name=NULL), enframe(linear_models_net$coefs[[11]][c(1,3,6,7)], name=NULL))
+
+Data <- data.frame(value = Value, param = Param, metric = Metric)
+
+ggplot(data = Data, aes(x = metric, y = value, fill = param)) + geom_bar(stat = "identity", width = 0.5, position = position_dodge()) + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + theme(legend.position="bottom") + theme(legend.title=element_blank()) + ggtitle("Network Metrics and Social-ecological Characteristics") + theme(plot.title = element_text(hjust = 0.5)) +labs(y= "Effect size", x = "")
+```
+
+![](simulation_analysis_files/figure-gfm/plot_results_network-2.png)<!-- -->
