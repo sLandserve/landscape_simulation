@@ -8,8 +8,8 @@ library(sf)
 nrow <- ncol <- 65 # NB all landscapes will need to be of dimension 2^n + 1 due to way mid-point displacement method works
 p_supply <- p_demand <- c(0.1, 0.2, 0.3, 0.4, 0.5)
 f_supply <- f_demand <- seq(0, 1, by = 0.1)
-grad <- 0
-inter <- 0
+grad <- 0.5
+inter <- c(0, 0.2, 0.4, 0.6, 0.8, 1)
 ee_thresh <- c(9.2, 18.4, 27.6, 36.8, 46.0) # chosen to represent 10%, 20%, 30%, 40%, and 50% of the diagonal length of the landscape
 es_thresh <- c(9.2, 18.4, 27.6, 36.8, 46.0) # chosen to represent 10%, 20%, 30%, 40%, and 50% of the diagonal length of the landscape
 rival <- c(TRUE, FALSE)
