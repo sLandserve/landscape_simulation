@@ -13,10 +13,10 @@ inter <- c(0, 0.2, 0.4, 0.6, 0.8, 1)
 ee_thresh <- c(9.2, 18.4, 27.6, 36.8, 46.0) # chosen to represent 10%, 20%, 30%, 40%, and 50% of the diagonal length of the landscape
 es_thresh <- c(9.2, 18.4, 27.6, 36.8, 46.0) # chosen to represent 10%, 20%, 30%, 40%, and 50% of the diagonal length of the landscape
 rival <- c(TRUE, FALSE)
-alpha <- c(0.3, 1.0) #chosen to represent a species area relationship and a linear relationship with patch size
-beta <- c(-0.1, -0.05, 0, 0.05, 0.1) #this represents the effect of supply-supply connections
-gamma <- c(0, 0.1, 0.2, 0.3, 0.4, 0.5) # included 0 here to represent a flat demand curve (i.e., perfectly substitutable) -
-          # as gamma goes up then the ES becomes less substitutable, so gamma is a measure of non-substitutability
+alpha <- c(0.3, 1.0) # chosen to represent a species area relationship and a linear relationship with patch size
+beta <- c(-0.1, -0.05, 0, 0.05, 0.1) # this represents the effect of supply-supply connections
+gamma <- c(0, 0.1, 0.2, 0.3, 0.4, 0.5) # 1/gamma is the elasticity of substitution (gamma is also a measure of risk-aversion)
+          # as gamma goes up then the ES becomes less substitutable, so gamma is essentially a measure of non-substitutability
 
 # 2. Function for one set of landscape parameters
 es_benefit <- function(nrow, ncol, p_supply, p_demand, f_supply, f_demand, grad, inter, params) {

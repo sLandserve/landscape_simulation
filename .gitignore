@@ -37,5 +37,5 @@ vignettes/*.pdf
 # We don't want to upload our data to GitHub
 data/
 
-# We don't want to upload the simulated results to github
+# We don't want to upload the simulated results or outputs to github
 results/
